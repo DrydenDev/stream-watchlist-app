@@ -37,8 +37,15 @@ function fromBase64(b64: string): string {
   return decodeURIComponent(escape(atob(b64)));
 }
 
+// Full payload — config + films. Suitable for a copied link; too large for QR.
 export function encodeSyncPayload(films: LetterboxdFilm[] | null): string {
   const payload: SyncPayload = { config: getConfig(), films };
+  return toBase64(JSON.stringify(payload));
+}
+
+// Config only — no films. Small enough for a QR code.
+export function encodeConfigForQr(): string {
+  const payload: SyncPayload = { config: getConfig(), films: null };
   return toBase64(JSON.stringify(payload));
 }
 

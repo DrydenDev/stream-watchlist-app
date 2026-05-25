@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { initiateYouTubeAuth, isTokenExpired } from '../features/youtube/youtube-auth';
 import { DEFAULT_PLAYLIST_IDS } from '../features/youtube/youtube-api';
-import { getConfig, saveConfig, encodeSyncPayload } from '../lib/storage';
+import { getConfig, saveConfig, encodeSyncPayload, encodeConfigForQr } from '../lib/storage';
 import { parseLbCsv } from '../features/letterboxd/letterboxd-csv';
 import { getLbFilms, setLbFilms } from '../lib/letterboxd-store';
 import { clearDismissedBySource } from '../lib/dismissed-store';
@@ -159,7 +159,8 @@ export function OnboardingScreen({ onComplete, onClose }: Props) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const syncUrl = `${window.location.origin}/#config=${encodeSyncPayload(getLbFilms())}`;
+  const qrUrl = `${window.location.origin}/#config=${encodeConfigForQr()}`;
+  const fullSyncUrl = `${window.location.origin}/#config=${encodeSyncPayload(getLbFilms())}`;
 
   const youtubeTokenOk = Boolean(savedConfig.youtube && !isTokenExpired(savedConfig.youtube));
   const youtubeTokenExpired = Boolean(savedConfig.youtube && isTokenExpired(savedConfig.youtube));
@@ -398,16 +399,16 @@ export function OnboardingScreen({ onComplete, onClose }: Props) {
               {showSync && (
                 <div className="flex flex-col items-center gap-3 pt-1">
                   <div className="bg-white p-3 rounded-xl">
-                    <QRCodeSVG value={syncUrl} size={200} />
+                    <QRCodeSVG value={qrUrl} size={200} />
                   </div>
                   <button
-                    onClick={() => navigator.clipboard.writeText(syncUrl)}
+                    onClick={() => navigator.clipboard.writeText(fullSyncUrl)}
                     className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium transition-colors"
                   >
-                    Copy link
+                    Copy link (includes films)
                   </button>
                   <p className="text-zinc-600 text-xs text-center max-w-xs">
-                    Includes your API keys and Letterboxd films. Don't share publicly.
+                    QR sets up API keys only. Copy link also transfers your Letterboxd film list. Don't share publicly.
                   </p>
                 </div>
               )}
