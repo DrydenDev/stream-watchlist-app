@@ -45,12 +45,19 @@ export function parseRssFeed(xml: string): RssFilm[] {
 }
 
 export async function fetchLetterboxdWatchlist(username: string): Promise<RssFilm[]> {
+  console.log(`[letterboxd] fetching watchlist for ${username}`);
   const res = await fetch(`/api/letterboxd-rss?username=${encodeURIComponent(username)}`);
+  console.log(`[letterboxd] proxy response: ${res.status}`);
+
   if (res.status === 403) {
     throw new Error(
       'Your Letterboxd watchlist is private. In Letterboxd → Settings → Privacy, set Watchlist to "Everyone".',
     );
   }
   if (!res.ok) throw new Error(`Letterboxd RSS fetch failed: ${res.status}`);
-  return parseRssFeed(await res.text());
+
+  const xml = await res.text();
+  const films = parseRssFeed(xml);
+  console.log(`[letterboxd] parsed ${films.length} films:`, films.slice(0, 5).map((f) => `${f.filmTitle} (${f.filmYear}) tmdbId=${f.tmdbId}`));
+  return films;
 }

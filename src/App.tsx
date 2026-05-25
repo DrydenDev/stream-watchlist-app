@@ -81,6 +81,7 @@ export default function App() {
 
     const cached = getCachedList();
     if (cached && cached.length > 0) {
+      console.log(`[app] serving ${cached.length} items from cache — click Refresh to re-fetch`);
       setAllItems(cached);
       reshuffle(cached);
       setAppState('ready');
