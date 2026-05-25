@@ -2,7 +2,7 @@ import type { AppConfig } from '../types';
 
 const CONFIG_KEY = 'swl_config';
 
-const EMPTY_CONFIG: AppConfig = { youtube: null, letterboxd: null, tmdbApiKey: null };
+const EMPTY_CONFIG: AppConfig = { youtube: null, youtubeClientId: null, letterboxd: null, tmdbApiKey: null };
 
 export function getConfig(): AppConfig {
   try {

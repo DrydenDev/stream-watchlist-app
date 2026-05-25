@@ -2,26 +2,24 @@ import { useState } from 'react';
 import { initiateYouTubeAuth } from '../features/youtube/youtube-auth';
 import { saveConfig } from '../lib/storage';
 
-const YOUTUBE_CLIENT_ID = import.meta.env.VITE_YOUTUBE_CLIENT_ID as string | undefined;
-
 interface Props {
   onComplete: () => void;
 }
 
 export function OnboardingScreen({ onComplete }: Props) {
+  const [youtubeClientId, setYoutubeClientId] = useState('');
   const [letterboxdUsername, setLetterboxdUsername] = useState('');
   const [tmdbKey, setTmdbKey] = useState('');
-  const [youtubeConnected] = useState(false);
 
+  const youtubeReady = youtubeClientId.trim().length > 0;
   const letterboxdReady = letterboxdUsername.trim().length > 0 && tmdbKey.trim().length > 0;
-  const canContinue = youtubeConnected || letterboxdReady;
+  const canContinue = youtubeReady || letterboxdReady;
 
   function connectYouTube() {
-    if (!YOUTUBE_CLIENT_ID) {
-      alert('Set VITE_YOUTUBE_CLIENT_ID in your .env.local file first.');
-      return;
-    }
-    initiateYouTubeAuth(YOUTUBE_CLIENT_ID);
+    const clientId = youtubeClientId.trim();
+    if (!clientId) return;
+    saveConfig({ youtubeClientId: clientId });
+    initiateYouTubeAuth(clientId);
   }
 
   function handleContinue() {
@@ -42,19 +40,25 @@ export function OnboardingScreen({ onComplete }: Props) {
         <div className="flex flex-col gap-4">
           {/* YouTube */}
           <div className="rounded-xl bg-zinc-900 p-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-semibold">YouTube</p>
-                <p className="text-zinc-500 text-sm">Watch Later playlist</p>
-              </div>
+            <div>
+              <p className="text-white font-semibold">YouTube</p>
+              <p className="text-zinc-500 text-sm">Watch Later playlist</p>
+            </div>
+            <input
+              type="text"
+              placeholder="Google OAuth client ID"
+              value={youtubeClientId}
+              onChange={(e) => setYoutubeClientId(e.target.value)}
+              className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/20"
+            />
+            {youtubeReady && (
               <button
                 onClick={connectYouTube}
-                disabled={youtubeConnected}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-colors"
+                className="self-start px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors"
               >
-                {youtubeConnected ? 'Connected ✓' : 'Connect'}
+                Connect →
               </button>
-            </div>
+            )}
           </div>
 
           {/* Letterboxd */}
