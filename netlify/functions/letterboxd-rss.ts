@@ -12,14 +12,14 @@ export default async (request: Request): Promise<Response> => {
     'Accept': 'application/rss+xml, application/xml, text/xml',
   };
 
-  // Prefer the watchlist-specific feed; fall back to the general activity feed
-  let upstream = await fetch(`https://letterboxd.com/${username}/watchlist/rss/`, { headers: rssHeaders });
-  if (!upstream.ok) {
-    upstream = await fetch(`https://letterboxd.com/${username}/rss/`, { headers: rssHeaders });
+  const upstream = await fetch(`https://letterboxd.com/${username}/watchlist/rss/`, { headers: rssHeaders });
+
+  if (upstream.status === 403) {
+    return new Response('watchlist-private', { status: 403 });
   }
 
   if (!upstream.ok) {
-    return new Response('Failed to fetch Letterboxd RSS', { status: upstream.status });
+    return new Response(`Letterboxd returned ${upstream.status}`, { status: upstream.status });
   }
 
   return new Response(await upstream.text(), {

@@ -46,6 +46,11 @@ export function parseRssFeed(xml: string): RssFilm[] {
 
 export async function fetchLetterboxdWatchlist(username: string): Promise<RssFilm[]> {
   const res = await fetch(`/api/letterboxd-rss?username=${encodeURIComponent(username)}`);
+  if (res.status === 403) {
+    throw new Error(
+      'Your Letterboxd watchlist is private. In Letterboxd → Settings → Privacy, set Watchlist to "Everyone".',
+    );
+  }
   if (!res.ok) throw new Error(`Letterboxd RSS fetch failed: ${res.status}`);
   return parseRssFeed(await res.text());
 }
