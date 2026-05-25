@@ -1,4 +1,5 @@
 import type { AppConfig } from '../types';
+import type { LetterboxdFilm } from '../features/letterboxd/letterboxd-csv';
 
 const CONFIG_KEY = 'swl_config';
 
@@ -21,16 +22,38 @@ export function clearConfig(): void {
   localStorage.removeItem(CONFIG_KEY);
 }
 
-export function encodeConfigForSync(): string {
-  return btoa(JSON.stringify(getConfig()));
+export interface SyncPayload {
+  config: Partial<AppConfig>;
+  films: LetterboxdFilm[] | null;
 }
 
-export function parseConfigFromHash(hash: string): Partial<AppConfig> | null {
+// btoa/atob only handle Latin-1; wrap with encode/decodeURIComponent for UTF-8 safety
+// (film titles may contain non-ASCII characters).
+function toBase64(str: string): string {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+function fromBase64(b64: string): string {
+  return decodeURIComponent(escape(atob(b64)));
+}
+
+export function encodeSyncPayload(films: LetterboxdFilm[] | null): string {
+  const payload: SyncPayload = { config: getConfig(), films };
+  return toBase64(JSON.stringify(payload));
+}
+
+export function parseSyncPayload(hash: string): SyncPayload | null {
   const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
-  const payload = params.get('config');
-  if (!payload) return null;
+  const raw = params.get('config');
+  if (!raw) return null;
   try {
-    return JSON.parse(atob(payload)) as Partial<AppConfig>;
+    const decoded = JSON.parse(fromBase64(raw));
+    // New format: { config, films }
+    if (decoded && typeof decoded === 'object' && 'config' in decoded) {
+      return { config: decoded.config as Partial<AppConfig>, films: decoded.films ?? null };
+    }
+    // Old format: plain AppConfig — still import it, no films
+    return { config: decoded as Partial<AppConfig>, films: null };
   } catch {
     return null;
   }

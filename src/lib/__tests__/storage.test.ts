@@ -1,37 +1,64 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getConfig, saveConfig, encodeConfigForSync, parseConfigFromHash } from '../storage';
+import { getConfig, saveConfig, encodeSyncPayload, parseSyncPayload } from '../storage';
+
+const FILMS = [
+  { title: 'Parasite', year: '2019', url: 'https://letterboxd.com/film/parasite-2019/', tmdbId: 496243 },
+  { title: 'パラサイト', year: '2019', url: 'https://letterboxd.com/film/parasite-2019/', tmdbId: 496243 },
+];
 
 beforeEach(() => {
   localStorage.clear();
 });
 
-describe('encodeConfigForSync / parseConfigFromHash round-trip', () => {
-  it('encodes the current config and decodes it back from a hash string', () => {
+describe('encodeSyncPayload / parseSyncPayload round-trip', () => {
+  it('encodes config and films together and decodes them back', () => {
     saveConfig({ tmdbApiKey: 'my-token', youtubePlaylistIds: ['LL'] });
-    const encoded = encodeConfigForSync();
-    const decoded = parseConfigFromHash(`#config=${encoded}`);
-    expect(decoded?.tmdbApiKey).toBe('my-token');
-    expect(decoded?.youtubePlaylistIds).toEqual(['LL']);
+    const encoded = encodeSyncPayload(FILMS);
+    const result = parseSyncPayload(`#config=${encoded}`);
+    expect(result?.config.tmdbApiKey).toBe('my-token');
+    expect(result?.config.youtubePlaylistIds).toEqual(['LL']);
+    expect(result?.films).toEqual(FILMS);
+  });
+
+  it('handles non-ASCII film titles (UTF-8 safety)', () => {
+    const encoded = encodeSyncPayload(FILMS);
+    const result = parseSyncPayload(`#config=${encoded}`);
+    expect(result?.films?.[1].title).toBe('パラサイト');
   });
 
   it('works without a leading # in the hash', () => {
-    const encoded = encodeConfigForSync();
-    const decoded = parseConfigFromHash(`config=${encoded}`);
-    expect(decoded).not.toBeNull();
+    const encoded = encodeSyncPayload(null);
+    expect(parseSyncPayload(`config=${encoded}`)).not.toBeNull();
+  });
+
+  it('encodes null films and decodes them back as null', () => {
+    const encoded = encodeSyncPayload(null);
+    const result = parseSyncPayload(`#config=${encoded}`);
+    expect(result?.films).toBeNull();
   });
 });
 
-describe('parseConfigFromHash', () => {
+describe('parseSyncPayload — backward compatibility', () => {
+  it('handles old format (plain AppConfig, no films key) without crashing', () => {
+    // Simulate an old-format link generated before the films field was added.
+    const oldPayload = btoa(unescape(encodeURIComponent(JSON.stringify({ tmdbApiKey: 'old' }))));
+    const result = parseSyncPayload(`#config=${oldPayload}`);
+    expect(result?.config.tmdbApiKey).toBe('old');
+    expect(result?.films).toBeNull();
+  });
+});
+
+describe('parseSyncPayload — error cases', () => {
   it('returns null when no config param is present', () => {
-    expect(parseConfigFromHash('#access_token=abc&expires_in=3600')).toBeNull();
+    expect(parseSyncPayload('#access_token=abc&expires_in=3600')).toBeNull();
   });
 
-  it('returns null for a malformed (non-base64) payload', () => {
-    expect(parseConfigFromHash('#config=!!!not-valid-base64!!!')).toBeNull();
+  it('returns null for a malformed payload', () => {
+    expect(parseSyncPayload('#config=!!!not-valid!!!')).toBeNull();
   });
 
   it('returns null for an empty hash', () => {
-    expect(parseConfigFromHash('')).toBeNull();
+    expect(parseSyncPayload('')).toBeNull();
   });
 });
 

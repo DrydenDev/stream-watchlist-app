@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { initiateYouTubeAuth, isTokenExpired } from '../features/youtube/youtube-auth';
 import { DEFAULT_PLAYLIST_IDS } from '../features/youtube/youtube-api';
-import { getConfig, saveConfig, encodeConfigForSync } from '../lib/storage';
+import { getConfig, saveConfig, encodeSyncPayload } from '../lib/storage';
 import { parseLbCsv } from '../features/letterboxd/letterboxd-csv';
-import { setLbFilms } from '../lib/letterboxd-store';
+import { getLbFilms, setLbFilms } from '../lib/letterboxd-store';
 import { clearDismissedBySource } from '../lib/dismissed-store';
 
 interface Props {
@@ -159,7 +159,9 @@ export function OnboardingScreen({ onComplete, onClose }: Props) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const syncUrl = `${window.location.origin}/#config=${encodeConfigForSync()}`;
+  const syncUrl = `${window.location.origin}/#config=${encodeSyncPayload(getLbFilms())}`;
+  // QR codes become too dense to scan reliably above ~1500 URL chars; offer Copy as fallback.
+  const syncUrlFitsQr = syncUrl.length <= 1500;
 
   const youtubeTokenOk = Boolean(savedConfig.youtube && !isTokenExpired(savedConfig.youtube));
   const youtubeTokenExpired = Boolean(savedConfig.youtube && isTokenExpired(savedConfig.youtube));
@@ -397,12 +399,23 @@ export function OnboardingScreen({ onComplete, onClose }: Props) {
 
               {showSync && (
                 <div className="flex flex-col items-center gap-3 pt-1">
-                  <div className="bg-white p-3 rounded-xl">
-                    <QRCodeSVG value={syncUrl} size={200} />
-                  </div>
-                  <p className="text-zinc-500 text-xs text-center max-w-xs">
-                    Scan with your phone camera. Your API keys are encoded in the link — don't share this QR publicly.
-                    Letterboxd film list must be re-imported separately on the new device.
+                  {syncUrlFitsQr ? (
+                    <div className="bg-white p-3 rounded-xl">
+                      <QRCodeSVG value={syncUrl} size={200} />
+                    </div>
+                  ) : (
+                    <p className="text-zinc-500 text-sm text-center">
+                      Your film list is too large for a QR code — use the copy link below.
+                    </p>
+                  )}
+                  <button
+                    onClick={() => navigator.clipboard.writeText(syncUrl)}
+                    className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium transition-colors"
+                  >
+                    Copy link
+                  </button>
+                  <p className="text-zinc-600 text-xs text-center max-w-xs">
+                    Includes your API keys and Letterboxd films. Don't share publicly.
                   </p>
                 </div>
               )}

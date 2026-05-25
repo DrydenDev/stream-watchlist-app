@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { WatchlistItem } from './types';
-import { getConfig, saveConfig, parseConfigFromHash } from './lib/storage';
+import { getConfig, saveConfig, parseSyncPayload } from './lib/storage';
 import { getCachedList, setCachedList, clearCache } from './lib/cache';
 import { parseTokenFromHash, isTokenExpired, silentRefreshToken } from './features/youtube/youtube-auth';
 import { fetchFromPlaylists, DEFAULT_PLAYLIST_IDS } from './features/youtube/youtube-api';
 import { enrichWithTmdb } from './features/letterboxd/tmdb';
-import { getLbFilms } from './lib/letterboxd-store';
+import { getLbFilms, setLbFilms } from './lib/letterboxd-store';
 import { getDismissed, dismissItem, clearDismissed, clearDismissedBySource } from './lib/dismissed-store';
 import { STREAMING_SERVICES, YOUTUBE_TMDB_NAMES, itemMatchesService } from './lib/streaming-services';
 import type { ServiceFilterId } from './lib/streaming-services';
@@ -126,9 +126,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const synced = parseConfigFromHash(window.location.hash);
+    const synced = parseSyncPayload(window.location.hash);
     if (synced) {
-      saveConfig(synced);
+      saveConfig(synced.config);
+      if (synced.films) setLbFilms(synced.films);
       history.replaceState(null, '', window.location.pathname);
     }
 
