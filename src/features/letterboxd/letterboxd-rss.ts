@@ -46,7 +46,7 @@ export function parseRssFeed(xml: string): RssFilm[] {
 
 export async function fetchLetterboxdWatchlist(username: string): Promise<RssFilm[]> {
   console.log(`[letterboxd] fetching watchlist for ${username}`);
-  const res = await fetch(`/api/letterboxd-rss?username=${encodeURIComponent(username)}`);
+  const res = await fetch(`/api/letterboxd-rss?username=${encodeURIComponent(username)}`, { cache: 'no-store' });
   console.log(`[letterboxd] proxy response: ${res.status}`);
 
   if (res.status === 403) {

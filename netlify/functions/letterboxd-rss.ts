@@ -42,7 +42,7 @@ export default async (request: Request): Promise<Response> => {
   return new Response(body, {
     headers: {
       'Content-Type': 'application/rss+xml',
-      'Cache-Control': 'private, no-cache',
+      'Cache-Control': 'no-store',
       'Access-Control-Allow-Origin': '*',
     },
   });
