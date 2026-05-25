@@ -1,20 +1,32 @@
-import { useState } from 'react';
-import { initiateYouTubeAuth } from '../features/youtube/youtube-auth';
-import { saveConfig } from '../lib/storage';
+import { useState, useEffect } from 'react';
+import { initiateYouTubeAuth, isTokenExpired } from '../features/youtube/youtube-auth';
+import { getConfig, saveConfig } from '../lib/storage';
 
 interface Props {
   onComplete: () => void;
 }
 
 type DrawerTopic = 'youtube' | 'tmdb' | null;
+type VerifyState = 'idle' | 'checking' | 'ok' | 'fail';
+
+async function checkTmdbKey(apiKey: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/authentication?api_key=${encodeURIComponent(apiKey)}`,
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 function HelpDrawer({ topic, onClose }: { topic: DrawerTopic; onClose: () => void }) {
   if (!topic) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end cursor-pointer" onClick={onClose}>
       <div
-        className="relative h-full w-full max-w-sm bg-zinc-900 border-l border-zinc-800 p-6 overflow-y-auto flex flex-col gap-5"
+        className="relative h-full w-full max-w-sm bg-zinc-900 border-l border-zinc-800 p-6 overflow-y-auto flex flex-col gap-5 cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -67,7 +79,7 @@ function HelpButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-5 h-5 rounded-full border border-zinc-600 text-zinc-500 hover:border-zinc-400 hover:text-zinc-300 text-xs font-bold leading-none flex items-center justify-center transition-colors"
+      className="w-5 h-5 rounded-full border border-zinc-600 text-zinc-500 hover:border-zinc-400 hover:text-zinc-300 text-xs font-bold leading-none flex items-center justify-center transition-colors flex-shrink-0"
       aria-label="Help"
     >
       ?
@@ -75,15 +87,64 @@ function HelpButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function StatusBadge({ state }: { state: VerifyState | 'warn' }) {
+  if (state === 'idle') return null;
+  if (state === 'checking') return <span className="text-zinc-500 text-sm animate-pulse">…</span>;
+  if (state === 'ok') return <span className="text-green-500 text-sm font-bold flex-shrink-0">✓</span>;
+  if (state === 'warn') return <span className="text-yellow-400 text-sm flex-shrink-0">⚠</span>;
+  return <span className="text-red-400 text-sm flex-shrink-0">✗</span>;
+}
+
+function RevealToggle({ revealed, onToggle }: { revealed: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs transition-colors select-none"
+    >
+      {revealed ? 'Hide' : 'Show'}
+    </button>
+  );
+}
+
 export function OnboardingScreen({ onComplete }: Props) {
-  const [youtubeClientId, setYoutubeClientId] = useState('');
-  const [letterboxdUsername, setLetterboxdUsername] = useState('');
-  const [tmdbKey, setTmdbKey] = useState('');
+  const [savedConfig] = useState(() => getConfig());
+
+  const [youtubeClientId, setYoutubeClientId] = useState(savedConfig.youtubeClientId ?? '');
+  const [revealClientId, setRevealClientId] = useState(false);
+
+  const [letterboxdUsername, setLetterboxdUsername] = useState(savedConfig.letterboxd?.username ?? '');
+
+  const [tmdbKey, setTmdbKey] = useState(savedConfig.tmdbApiKey ?? '');
+  const [revealTmdbKey, setRevealTmdbKey] = useState(false);
+  const [tmdbVerify, setTmdbVerify] = useState<VerifyState>('idle');
+
   const [drawer, setDrawer] = useState<DrawerTopic>(null);
 
-  const youtubeReady = youtubeClientId.trim().length > 0;
+  const youtubeTokenOk = Boolean(savedConfig.youtube && !isTokenExpired(savedConfig.youtube));
+  const youtubeTokenExpired = Boolean(savedConfig.youtube && isTokenExpired(savedConfig.youtube));
+
+  useEffect(() => {
+    if (!savedConfig.tmdbApiKey) return;
+    setTmdbVerify('checking');
+    checkTmdbKey(savedConfig.tmdbApiKey).then((ok) => setTmdbVerify(ok ? 'ok' : 'fail'));
+  }, [savedConfig.tmdbApiKey]);
+
+  function handleTmdbKeyChange(value: string) {
+    setTmdbKey(value);
+    setTmdbVerify('idle');
+  }
+
+  async function handleVerifyTmdb() {
+    const key = tmdbKey.trim();
+    if (!key) return;
+    setTmdbVerify('checking');
+    const ok = await checkTmdbKey(key);
+    setTmdbVerify(ok ? 'ok' : 'fail');
+  }
+
   const letterboxdReady = letterboxdUsername.trim().length > 0 && tmdbKey.trim().length > 0;
-  const canContinue = youtubeReady || letterboxdReady;
+  const canContinue = youtubeTokenOk || letterboxdReady;
 
   function connectYouTube() {
     const clientId = youtubeClientId.trim();
@@ -118,21 +179,30 @@ export function OnboardingScreen({ onComplete }: Props) {
                   <p className="text-white font-semibold">YouTube</p>
                   <p className="text-zinc-500 text-sm">Watch Later playlist</p>
                 </div>
+                {youtubeTokenOk && <StatusBadge state="ok" />}
+                {youtubeTokenExpired && <StatusBadge state="warn" />}
                 <HelpButton onClick={() => setDrawer('youtube')} />
               </div>
-              <input
-                type="text"
-                placeholder="Google OAuth client ID"
-                value={youtubeClientId}
-                onChange={(e) => setYoutubeClientId(e.target.value)}
-                className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/20"
-              />
-              {youtubeReady && (
+
+              <div className="relative">
+                <input
+                  type={revealClientId ? 'text' : 'password'}
+                  placeholder="Google OAuth client ID"
+                  value={youtubeClientId}
+                  onChange={(e) => setYoutubeClientId(e.target.value)}
+                  className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 pr-14 text-sm outline-none focus:ring-2 focus:ring-white/20"
+                />
+                {youtubeClientId && (
+                  <RevealToggle revealed={revealClientId} onToggle={() => setRevealClientId((r) => !r)} />
+                )}
+              </div>
+
+              {youtubeClientId.trim() && (
                 <button
                   onClick={connectYouTube}
                   className="self-start px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors"
                 >
-                  Connect →
+                  {youtubeTokenOk ? 'Reconnect' : youtubeTokenExpired ? 'Token expired — Reconnect' : 'Connect →'}
                 </button>
               )}
             </div>
@@ -144,7 +214,9 @@ export function OnboardingScreen({ onComplete }: Props) {
                   <p className="text-white font-semibold">Letterboxd</p>
                   <p className="text-zinc-500 text-sm">Watchlist (public profile required)</p>
                 </div>
+                {letterboxdUsername.trim() && tmdbVerify === 'ok' && <StatusBadge state="ok" />}
               </div>
+
               <input
                 type="text"
                 placeholder="Username"
@@ -152,18 +224,31 @@ export function OnboardingScreen({ onComplete }: Props) {
                 onChange={(e) => setLetterboxdUsername(e.target.value)}
                 className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/20"
               />
+
               {letterboxdUsername.trim() && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
                     <input
-                      type="text"
+                      type={revealTmdbKey ? 'text' : 'password'}
                       placeholder="TMDB API key (for posters & metadata)"
                       value={tmdbKey}
-                      onChange={(e) => setTmdbKey(e.target.value)}
-                      className="flex-1 bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/20"
+                      onChange={(e) => handleTmdbKeyChange(e.target.value)}
+                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 pr-14 text-sm outline-none focus:ring-2 focus:ring-white/20"
                     />
-                    <HelpButton onClick={() => setDrawer('tmdb')} />
+                    {tmdbKey && (
+                      <RevealToggle revealed={revealTmdbKey} onToggle={() => setRevealTmdbKey((r) => !r)} />
+                    )}
                   </div>
+                  <StatusBadge state={tmdbVerify} />
+                  {tmdbVerify === 'idle' && tmdbKey.trim() && (
+                    <button
+                      onClick={handleVerifyTmdb}
+                      className="text-zinc-500 hover:text-white text-xs transition-colors whitespace-nowrap flex-shrink-0"
+                    >
+                      Verify
+                    </button>
+                  )}
+                  <HelpButton onClick={() => setDrawer('tmdb')} />
                 </div>
               )}
             </div>
