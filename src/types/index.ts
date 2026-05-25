@@ -20,7 +20,7 @@ export interface AppConfig {
   youtube: YouTubeToken | null;
   youtubeClientId: string | null;
   youtubePlaylistIds: string[] | null;
-  letterboxd: { username: string } | null;
+  letterboxd: { importedAt: string; count: number } | null;
   tmdbApiKey: string | null;
 }
 

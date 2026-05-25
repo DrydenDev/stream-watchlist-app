@@ -5,8 +5,8 @@ import { getCachedList, setCachedList, clearCache } from './lib/cache';
 import { pickRandom } from './lib/random';
 import { parseTokenFromHash, isTokenExpired } from './features/youtube/youtube-auth';
 import { fetchFromPlaylists, DEFAULT_PLAYLIST_IDS } from './features/youtube/youtube-api';
-import { fetchLetterboxdWatchlist } from './features/letterboxd/letterboxd-rss';
 import { enrichWithTmdb } from './features/letterboxd/tmdb';
+import { getLbFilms } from './lib/letterboxd-store';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { WatchlistCard } from './components/WatchlistCard';
 import { PlaceholderCard } from './components/PlaceholderCard';
@@ -42,11 +42,11 @@ export default function App() {
     }
 
     if (config.letterboxd && config.tmdbApiKey) {
-      fetchers.push(
-        fetchLetterboxdWatchlist(config.letterboxd.username).then((films) =>
-          enrichWithTmdb(films, config.tmdbApiKey!),
-        ),
-      );
+      const lbFilms = getLbFilms();
+      if (lbFilms && lbFilms.length > 0) {
+        console.log(`[letterboxd] enriching ${lbFilms.length} imported films with TMDB metadata`);
+        fetchers.push(enrichWithTmdb(lbFilms, config.tmdbApiKey!));
+      }
     }
 
     try {

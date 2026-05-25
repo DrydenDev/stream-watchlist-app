@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { initiateYouTubeAuth, isTokenExpired } from '../features/youtube/youtube-auth';
 import { DEFAULT_PLAYLIST_IDS } from '../features/youtube/youtube-api';
 import { getConfig, saveConfig } from '../lib/storage';
+import { parseLbCsv } from '../features/letterboxd/letterboxd-csv';
+import { setLbFilms } from '../lib/letterboxd-store';
 
 interface Props {
   onComplete: () => void;
 }
 
-type DrawerTopic = 'youtube' | 'tmdb' | null;
+type DrawerTopic = 'youtube' | 'tmdb' | 'letterboxd' | null;
 type VerifyState = 'idle' | 'checking' | 'ok' | 'fail';
 
 async function checkTmdbToken(token: string): Promise<boolean> {
@@ -83,6 +85,19 @@ function HelpDrawer({ topic, onClose }: { topic: DrawerTopic; onClose: () => voi
             <p className="text-zinc-500 text-xs">TMDB is used to fetch movie posters, synopses, and runtimes for your Letterboxd watchlist. Without it you'll still see titles but no artwork.</p>
           </>
         )}
+
+        {topic === 'letterboxd' && (
+          <>
+            <h2 className="text-white font-bold text-lg pr-6">Letterboxd CSV import</h2>
+            <ol className="flex flex-col gap-3 text-sm text-zinc-300 list-decimal list-inside">
+              <li>Log in to <a href="https://letterboxd.com" target="_blank" rel="noopener noreferrer" className="text-white font-medium underline underline-offset-2 hover:text-zinc-300">letterboxd.com</a> and go to <span className="text-white font-medium">Settings → Import & Export</span>.</li>
+              <li>Under <span className="text-white font-medium">Export Your Data</span>, click <span className="text-white font-medium">Export</span>. Letterboxd will email you a ZIP file.</li>
+              <li>Extract the ZIP — you'll find several CSV files inside. Locate <span className="text-white font-medium">watchlist.csv</span>.</li>
+              <li>Click the upload area here and select that file.</li>
+            </ol>
+            <p className="text-zinc-500 text-xs">Your watchlist data stays on-device in your browser's local storage — it's never uploaded anywhere.</p>
+          </>
+        )}
       </div>
     </div>
   );
@@ -129,13 +144,16 @@ export function OnboardingScreen({ onComplete }: Props) {
     savedConfig.youtubePlaylistIds?.join(', ') ?? DEFAULT_PLAYLIST_IDS.join(', '),
   );
 
-  const [letterboxdUsername, setLetterboxdUsername] = useState(savedConfig.letterboxd?.username ?? '');
+  // Tracks how many films were imported in this session (before page reload)
+  const [importedCount, setImportedCount] = useState<number>(0);
 
   const [tmdbKey, setTmdbKey] = useState(savedConfig.tmdbApiKey ?? '');
   const [revealTmdbKey, setRevealTmdbKey] = useState(false);
   const [tmdbVerify, setTmdbVerify] = useState<VerifyState>('idle');
 
   const [drawer, setDrawer] = useState<DrawerTopic>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const youtubeTokenOk = Boolean(savedConfig.youtube && !isTokenExpired(savedConfig.youtube));
   const youtubeTokenExpired = Boolean(savedConfig.youtube && isTokenExpired(savedConfig.youtube));
@@ -159,8 +177,39 @@ export function OnboardingScreen({ onComplete }: Props) {
     setTmdbVerify(ok ? 'ok' : 'fail');
   }
 
-  const letterboxdReady = letterboxdUsername.trim().length > 0 && tmdbKey.trim().length > 0;
-  const canContinue = youtubeTokenOk || letterboxdReady;
+  function handleCsvFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const csv = e.target?.result;
+      if (typeof csv !== 'string') return;
+      const films = parseLbCsv(csv);
+      console.log(`[letterboxd] parsed ${films.length} films from CSV`);
+      setLbFilms(films);
+      saveConfig({ letterboxd: { importedAt: new Date().toISOString(), count: films.length } });
+      setImportedCount(films.length);
+    };
+    reader.readAsText(file);
+  }
+
+  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleCsvFile(file);
+  }
+
+  function handleDropZoneDrop(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleCsvFile(file);
+  }
+
+  const existingImport = savedConfig.letterboxd;
+  const hasImportedFilms = existingImport !== null || importedCount > 0;
+  const displayCount = importedCount > 0 ? importedCount : (existingImport?.count ?? 0);
+  const displayImportedAt = existingImport?.importedAt
+    ? new Date(existingImport.importedAt).toLocaleDateString()
+    : null;
+
+  const canContinue = youtubeTokenOk || hasImportedFilms;
 
   function connectYouTube() {
     const clientId = youtubeClientId.trim();
@@ -171,8 +220,8 @@ export function OnboardingScreen({ onComplete }: Props) {
   }
 
   function handleContinue() {
-    if (letterboxdReady) {
-      saveConfig({ letterboxd: { username: letterboxdUsername.trim() }, tmdbApiKey: tmdbKey.trim() });
+    if (tmdbKey.trim()) {
+      saveConfig({ tmdbApiKey: tmdbKey.trim() });
     }
     onComplete();
   }
@@ -240,45 +289,79 @@ export function OnboardingScreen({ onComplete }: Props) {
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <p className="text-white font-semibold">Letterboxd</p>
-                  <p className="text-zinc-500 text-sm">Watchlist (public profile required)</p>
+                  <p className="text-zinc-500 text-sm">Import your watchlist CSV</p>
                 </div>
-                {letterboxdUsername.trim() && tmdbVerify === 'ok' && <StatusBadge state="ok" />}
+                {hasImportedFilms && <StatusBadge state="ok" />}
+                <HelpButton onClick={() => setDrawer('letterboxd')} />
               </div>
 
-              <input
-                type="text"
-                placeholder="Username"
-                value={letterboxdUsername}
-                onChange={(e) => setLetterboxdUsername(e.target.value)}
-                className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/20"
-              />
-
-              {letterboxdUsername.trim() && (
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type={revealTmdbKey ? 'text' : 'password'}
-                      placeholder="TMDB Read Access Token (for posters & metadata)"
-                      value={tmdbKey}
-                      onChange={(e) => handleTmdbKeyChange(e.target.value)}
-                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 pr-14 text-sm outline-none focus:ring-2 focus:ring-white/20"
-                    />
-                    {tmdbKey && (
-                      <RevealToggle revealed={revealTmdbKey} onToggle={() => setRevealTmdbKey((r) => !r)} />
-                    )}
-                  </div>
-                  <StatusBadge state={tmdbVerify} />
-                  {tmdbVerify === 'idle' && tmdbKey.trim() && (
-                    <button
-                      onClick={handleVerifyTmdb}
-                      className="text-zinc-500 hover:text-white text-xs transition-colors whitespace-nowrap flex-shrink-0"
-                    >
-                      Verify
-                    </button>
-                  )}
-                  <HelpButton onClick={() => setDrawer('tmdb')} />
+              {hasImportedFilms ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-zinc-300">
+                    {displayCount} films imported
+                    {displayImportedAt && <span className="text-zinc-500"> · {displayImportedAt}</span>}
+                  </span>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="ml-auto text-zinc-500 hover:text-white text-xs transition-colors whitespace-nowrap flex-shrink-0"
+                  >
+                    Re-import
+                  </button>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDrop={handleDropZoneDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  className="w-full border-2 border-dashed border-zinc-700 hover:border-zinc-500 rounded-lg px-4 py-6 text-center text-zinc-500 hover:text-zinc-300 text-sm transition-colors cursor-pointer"
+                >
+                  Drop <span className="font-medium text-zinc-300">watchlist.csv</span> here or click to browse
+                </button>
               )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleFileInputChange}
+              />
+            </div>
+
+            {/* TMDB */}
+            <div className="rounded-xl bg-zinc-900 p-5 flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <p className="text-white font-semibold">TMDB</p>
+                  <p className="text-zinc-500 text-sm">Posters & metadata for Letterboxd films</p>
+                </div>
+                <StatusBadge state={tmdbVerify} />
+                <HelpButton onClick={() => setDrawer('tmdb')} />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={revealTmdbKey ? 'text' : 'password'}
+                    placeholder="Read Access Token"
+                    value={tmdbKey}
+                    onChange={(e) => handleTmdbKeyChange(e.target.value)}
+                    className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 pr-14 text-sm outline-none focus:ring-2 focus:ring-white/20"
+                  />
+                  {tmdbKey && (
+                    <RevealToggle revealed={revealTmdbKey} onToggle={() => setRevealTmdbKey((r) => !r)} />
+                  )}
+                </div>
+                {tmdbVerify === 'idle' && tmdbKey.trim() && (
+                  <button
+                    onClick={handleVerifyTmdb}
+                    className="text-zinc-500 hover:text-white text-xs transition-colors whitespace-nowrap flex-shrink-0"
+                  >
+                    Verify
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

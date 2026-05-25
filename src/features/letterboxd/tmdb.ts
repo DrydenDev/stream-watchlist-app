@@ -1,5 +1,5 @@
 import type { WatchlistItem } from '../../types';
-import type { RssFilm } from './letterboxd-rss';
+import type { LetterboxdFilm } from './letterboxd-csv';
 
 const BASE = 'https://api.themoviedb.org/3';
 const POSTER_BASE = 'https://image.tmdb.org/t/p/w500';
@@ -36,24 +36,24 @@ async function fetchMovieDetails(tmdbId: number, token: string): Promise<TmdbMov
   return res.json();
 }
 
-function filmToItem(film: RssFilm, details: TmdbMovieDetails | null, _tmdbId: number | null): WatchlistItem {
+function filmToItem(film: LetterboxdFilm, details: TmdbMovieDetails | null, _tmdbId: number | null): WatchlistItem {
   return {
-    id: `lb:${film.letterboxdUrl}`,
+    id: `lb:${film.url}`,
     source: 'letterboxd',
-    title: details?.title ?? film.filmTitle,
+    title: details?.title ?? film.title,
     poster: details?.poster_path ? `${POSTER_BASE}${details.poster_path}` : null,
     synopsis: details?.overview || null,
     runtimeMinutes: details?.runtime ?? null,
-    url: film.letterboxdUrl,
+    url: film.url,
     savedAt: new Date().toISOString(),
   };
 }
 
-export async function enrichWithTmdb(films: RssFilm[], token: string): Promise<WatchlistItem[]> {
+export async function enrichWithTmdb(films: LetterboxdFilm[], token: string): Promise<WatchlistItem[]> {
   const results: WatchlistItem[] = [];
 
   for (const film of films) {
-    const tmdbId = film.tmdbId ?? (await searchMovie(film.filmTitle, film.filmYear, token))?.id ?? null;
+    const tmdbId = film.tmdbId ?? (await searchMovie(film.title, film.year, token))?.id ?? null;
     if (!tmdbId) {
       results.push(filmToItem(film, null, null));
       continue;
