@@ -29,7 +29,7 @@ function HelpDrawer({ topic, onClose }: { topic: DrawerTopic; onClose: () => voi
           <>
             <h2 className="text-white font-bold text-lg pr-6">YouTube OAuth client ID</h2>
             <ol className="flex flex-col gap-3 text-sm text-zinc-300 list-decimal list-inside">
-              <li>Go to <span className="text-white font-medium">console.cloud.google.com</span> and create a new project (or pick an existing one).</li>
+              <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-white font-medium underline underline-offset-2 hover:text-zinc-300">console.cloud.google.com</a> and create a new project (or pick an existing one).</li>
               <li>In the left sidebar go to <span className="text-white font-medium">APIs &amp; Services → Library</span>, search for <span className="text-white font-medium">YouTube Data API v3</span>, and enable it.</li>
               <li>Go to <span className="text-white font-medium">APIs &amp; Services → Credentials</span> and click <span className="text-white font-medium">Create Credentials → OAuth client ID</span>.</li>
               <li>Choose <span className="text-white font-medium">Web application</span> as the application type.</li>
@@ -50,7 +50,7 @@ function HelpDrawer({ topic, onClose }: { topic: DrawerTopic; onClose: () => voi
           <>
             <h2 className="text-white font-bold text-lg pr-6">TMDB API key</h2>
             <ol className="flex flex-col gap-3 text-sm text-zinc-300 list-decimal list-inside">
-              <li>Create a free account at <span className="text-white font-medium">themoviedb.org</span>.</li>
+              <li>Create a free account at <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener noreferrer" className="text-white font-medium underline underline-offset-2 hover:text-zinc-300">themoviedb.org</a>.</li>
               <li>Go to your account settings (avatar → Settings) and choose <span className="text-white font-medium">API</span> in the left sidebar.</li>
               <li>Click <span className="text-white font-medium">Create</span> under the Developer section and fill in the short form (personal use is fine).</li>
               <li>Copy the <span className="text-white font-medium">API Key (v3 auth)</span> — it's a long hex string — and paste it here.</li>
