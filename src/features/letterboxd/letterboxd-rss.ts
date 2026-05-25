@@ -57,7 +57,17 @@ export async function fetchLetterboxdWatchlist(username: string): Promise<RssFil
   if (!res.ok) throw new Error(`Letterboxd RSS fetch failed: ${res.status}`);
 
   const xml = await res.text();
-  const films = parseRssFeed(xml);
-  console.log(`[letterboxd] parsed ${films.length} films:`, films.slice(0, 5).map((f) => `${f.filmTitle} (${f.filmYear}) tmdbId=${f.tmdbId}`));
+  const raw = parseRssFeed(xml);
+
+  // Deduplicate: prefer tmdbId match, fall back to title+year
+  const seen = new Set<string>();
+  const films = raw.filter((f) => {
+    const key = f.tmdbId != null ? `tmdb:${f.tmdbId}` : `title:${f.filmTitle}:${f.filmYear}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  console.log(`[letterboxd] parsed ${films.length} films (${raw.length - films.length} dupes removed):`, films.slice(0, 5).map((f) => `${f.filmTitle} (${f.filmYear}) tmdbId=${f.tmdbId}`));
   return films;
 }
