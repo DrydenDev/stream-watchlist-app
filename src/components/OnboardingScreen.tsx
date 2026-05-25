@@ -160,8 +160,6 @@ export function OnboardingScreen({ onComplete, onClose }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const syncUrl = `${window.location.origin}/#config=${encodeSyncPayload(getLbFilms())}`;
-  // QR codes become too dense to scan reliably above ~1500 URL chars; offer Copy as fallback.
-  const syncUrlFitsQr = syncUrl.length <= 1500;
 
   const youtubeTokenOk = Boolean(savedConfig.youtube && !isTokenExpired(savedConfig.youtube));
   const youtubeTokenExpired = Boolean(savedConfig.youtube && isTokenExpired(savedConfig.youtube));
@@ -399,15 +397,9 @@ export function OnboardingScreen({ onComplete, onClose }: Props) {
 
               {showSync && (
                 <div className="flex flex-col items-center gap-3 pt-1">
-                  {syncUrlFitsQr ? (
-                    <div className="bg-white p-3 rounded-xl">
-                      <QRCodeSVG value={syncUrl} size={200} />
-                    </div>
-                  ) : (
-                    <p className="text-zinc-500 text-sm text-center">
-                      Your film list is too large for a QR code — use the copy link below.
-                    </p>
-                  )}
+                  <div className="bg-white p-3 rounded-xl">
+                    <QRCodeSVG value={syncUrl} size={200} />
+                  </div>
                   <button
                     onClick={() => navigator.clipboard.writeText(syncUrl)}
                     className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium transition-colors"
