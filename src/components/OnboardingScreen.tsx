@@ -399,7 +399,11 @@ export function OnboardingScreen({ onComplete, onClose }: Props) {
               {showSync && (
                 <div className="flex flex-col items-center gap-3 pt-1">
                   <div className="bg-white p-3 rounded-xl">
-                    <QRCodeSVG value={qrUrl} size={200} />
+                    <QRCodeSVG
+                      value={qrUrl}
+                      size={200}
+                      imageSettings={{ src: '/qr-logo.svg', width: 36, height: 36, excavate: true }}
+                    />
                   </div>
                   <button
                     onClick={() => navigator.clipboard.writeText(fullSyncUrl)}
