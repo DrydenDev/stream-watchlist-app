@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { WatchlistItem } from './types';
-import { getConfig, saveConfig } from './lib/storage';
+import { getConfig, saveConfig, parseConfigFromHash } from './lib/storage';
 import { getCachedList, setCachedList, clearCache } from './lib/cache';
 import { parseTokenFromHash, isTokenExpired, silentRefreshToken } from './features/youtube/youtube-auth';
 import { fetchFromPlaylists, DEFAULT_PLAYLIST_IDS } from './features/youtube/youtube-api';
@@ -126,6 +126,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const synced = parseConfigFromHash(window.location.hash);
+    if (synced) {
+      saveConfig(synced);
+      history.replaceState(null, '', window.location.pathname);
+    }
+
     const token = parseTokenFromHash(window.location.hash);
     if (token) {
       saveConfig({ youtube: token });
@@ -151,7 +157,12 @@ export default function App() {
   }, [fetchAll]);
 
   if (appState === 'onboarding') {
-    return <OnboardingScreen onComplete={() => fetchAll()} />;
+    return (
+      <OnboardingScreen
+        onComplete={() => fetchAll()}
+        onClose={items.length > 0 ? () => setAppState('ready') : undefined}
+      />
+    );
   }
 
   return (

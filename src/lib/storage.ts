@@ -20,3 +20,18 @@ export function saveConfig(patch: Partial<AppConfig>): void {
 export function clearConfig(): void {
   localStorage.removeItem(CONFIG_KEY);
 }
+
+export function encodeConfigForSync(): string {
+  return btoa(JSON.stringify(getConfig()));
+}
+
+export function parseConfigFromHash(hash: string): Partial<AppConfig> | null {
+  const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+  const payload = params.get('config');
+  if (!payload) return null;
+  try {
+    return JSON.parse(atob(payload)) as Partial<AppConfig>;
+  } catch {
+    return null;
+  }
+}

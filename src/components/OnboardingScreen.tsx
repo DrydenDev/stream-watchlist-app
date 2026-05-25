@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { initiateYouTubeAuth, isTokenExpired } from '../features/youtube/youtube-auth';
 import { DEFAULT_PLAYLIST_IDS } from '../features/youtube/youtube-api';
-import { getConfig, saveConfig } from '../lib/storage';
+import { getConfig, saveConfig, encodeConfigForSync } from '../lib/storage';
 import { parseLbCsv } from '../features/letterboxd/letterboxd-csv';
 import { setLbFilms } from '../lib/letterboxd-store';
 import { clearDismissedBySource } from '../lib/dismissed-store';
 
 interface Props {
   onComplete: () => void;
+  onClose?: () => void;
 }
 
 type DrawerTopic = 'youtube' | 'tmdb' | 'letterboxd' | null;
@@ -136,7 +138,7 @@ function RevealToggle({ revealed, onToggle }: { revealed: boolean; onToggle: () 
   );
 }
 
-export function OnboardingScreen({ onComplete }: Props) {
+export function OnboardingScreen({ onComplete, onClose }: Props) {
   const [savedConfig] = useState(() => getConfig());
 
   const [youtubeClientId, setYoutubeClientId] = useState(savedConfig.youtubeClientId ?? '');
@@ -153,8 +155,11 @@ export function OnboardingScreen({ onComplete }: Props) {
   const [tmdbVerify, setTmdbVerify] = useState<VerifyState>('idle');
 
   const [drawer, setDrawer] = useState<DrawerTopic>(null);
+  const [showSync, setShowSync] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const syncUrl = `${window.location.origin}/#config=${encodeConfigForSync()}`;
 
   const youtubeTokenOk = Boolean(savedConfig.youtube && !isTokenExpired(savedConfig.youtube));
   const youtubeTokenExpired = Boolean(savedConfig.youtube && isTokenExpired(savedConfig.youtube));
@@ -234,7 +239,16 @@ export function OnboardingScreen({ onComplete }: Props) {
 
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6">
         <div className="w-full max-w-md flex flex-col gap-8">
-          <div className="text-center">
+          <div className="relative text-center">
+            {onClose && (
+              <button
+                onClick={onClose}
+                aria-label="Close settings"
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors text-2xl leading-none"
+              >
+                ×
+              </button>
+            )}
             <h1 className="text-4xl font-bold text-white tracking-tight">Stream Watchlist</h1>
             <p className="text-zinc-400 mt-2">Connect your sources to get started</p>
           </div>
@@ -366,6 +380,34 @@ export function OnboardingScreen({ onComplete }: Props) {
               </div>
             </div>
           </div>
+
+          {/* Sync to device */}
+          {canContinue && (
+            <div className="rounded-xl bg-zinc-900 p-5 flex flex-col gap-3">
+              <button
+                onClick={() => setShowSync((s) => !s)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <div>
+                  <p className="text-white font-semibold">Sync to another device</p>
+                  <p className="text-zinc-500 text-sm">Open on your phone with all settings pre-filled</p>
+                </div>
+                <span className="text-zinc-500 text-sm ml-4">{showSync ? 'Hide' : 'Show QR'}</span>
+              </button>
+
+              {showSync && (
+                <div className="flex flex-col items-center gap-3 pt-1">
+                  <div className="bg-white p-3 rounded-xl">
+                    <QRCodeSVG value={syncUrl} size={200} />
+                  </div>
+                  <p className="text-zinc-500 text-xs text-center max-w-xs">
+                    Scan with your phone camera. Your API keys are encoded in the link — don't share this QR publicly.
+                    Letterboxd film list must be re-imported separately on the new device.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             onClick={handleContinue}
