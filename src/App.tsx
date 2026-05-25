@@ -124,7 +124,7 @@ export default function App() {
         )}
 
         {appState === 'ready' && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {items.map((item) => (
               <WatchlistCard key={item.id} item={item} />
             ))}
