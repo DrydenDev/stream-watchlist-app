@@ -19,6 +19,7 @@ export interface YouTubeToken {
 export interface AppConfig {
   youtube: YouTubeToken | null;
   youtubeClientId: string | null;
+  youtubePlaylistIds: string[] | null;
   letterboxd: { username: string } | null;
   tmdbApiKey: string | null;
 }

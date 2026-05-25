@@ -4,7 +4,7 @@ import { getConfig, saveConfig } from './lib/storage';
 import { getCachedList, setCachedList, clearCache } from './lib/cache';
 import { pickRandom } from './lib/random';
 import { parseTokenFromHash, isTokenExpired } from './features/youtube/youtube-auth';
-import { fetchWatchLater } from './features/youtube/youtube-api';
+import { fetchFromPlaylists, DEFAULT_PLAYLIST_IDS } from './features/youtube/youtube-api';
 import { fetchLetterboxdWatchlist } from './features/letterboxd/letterboxd-rss';
 import { enrichWithTmdb } from './features/letterboxd/tmdb';
 import { OnboardingScreen } from './components/OnboardingScreen';
@@ -37,7 +37,8 @@ export default function App() {
     const fetchers: Promise<WatchlistItem[]>[] = [];
 
     if (config.youtube && !isTokenExpired(config.youtube)) {
-      fetchers.push(fetchWatchLater(config.youtube.accessToken));
+      const playlistIds = config.youtubePlaylistIds ?? DEFAULT_PLAYLIST_IDS;
+      fetchers.push(fetchFromPlaylists(config.youtube.accessToken, playlistIds));
     }
 
     if (config.letterboxd && config.tmdbApiKey) {

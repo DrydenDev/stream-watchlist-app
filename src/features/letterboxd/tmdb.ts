@@ -53,13 +53,13 @@ export async function enrichWithTmdb(films: RssFilm[], token: string): Promise<W
   const results: WatchlistItem[] = [];
 
   for (const film of films) {
-    const match = await searchMovie(film.filmTitle, film.filmYear, token);
-    if (!match) {
+    const tmdbId = film.tmdbId ?? (await searchMovie(film.filmTitle, film.filmYear, token))?.id ?? null;
+    if (!tmdbId) {
       results.push(filmToItem(film, null, null));
       continue;
     }
-    const details = await fetchMovieDetails(match.id, token);
-    results.push(filmToItem(film, details, match.id));
+    const details = await fetchMovieDetails(tmdbId, token);
+    results.push(filmToItem(film, details, tmdbId));
   }
 
   return results;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { initiateYouTubeAuth, isTokenExpired } from '../features/youtube/youtube-auth';
+import { DEFAULT_PLAYLIST_IDS } from '../features/youtube/youtube-api';
 import { getConfig, saveConfig } from '../lib/storage';
 
 interface Props {
@@ -39,22 +40,34 @@ function HelpDrawer({ topic, onClose }: { topic: DrawerTopic; onClose: () => voi
 
         {topic === 'youtube' && (
           <>
-            <h2 className="text-white font-bold text-lg pr-6">YouTube OAuth client ID</h2>
-            <ol className="flex flex-col gap-3 text-sm text-zinc-300 list-decimal list-inside">
-              <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-white font-medium underline underline-offset-2 hover:text-zinc-300">console.cloud.google.com</a> and create a new project (or pick an existing one).</li>
-              <li>In the left sidebar go to <span className="text-white font-medium">APIs &amp; Services → Library</span>, search for <span className="text-white font-medium">YouTube Data API v3</span>, and enable it.</li>
-              <li>Go to <span className="text-white font-medium">APIs &amp; Services → Credentials</span> and click <span className="text-white font-medium">Create Credentials → OAuth client ID</span>.</li>
-              <li>Choose <span className="text-white font-medium">Web application</span> as the application type.</li>
-              <li>
-                Under <span className="text-white font-medium">Authorized redirect URIs</span> add:
-                <ul className="list-disc list-inside mt-1 ml-3 text-zinc-400">
-                  <li>https://streams.lukethe.dev</li>
-                  <li>http://localhost:5173 (for local dev)</li>
-                </ul>
-              </li>
-              <li>Click <span className="text-white font-medium">Create</span>. Copy the <span className="text-white font-medium">Client ID</span> (ends in <code className="text-zinc-400">.apps.googleusercontent.com</code>) and paste it here.</li>
-            </ol>
-            <p className="text-zinc-500 text-xs">Your Watch Later playlist must not be set to private, or the API will return an empty list.</p>
+            <h2 className="text-white font-bold text-lg pr-6">YouTube setup</h2>
+
+            <div className="flex flex-col gap-1">
+              <p className="text-white text-sm font-semibold">OAuth client ID</p>
+              <ol className="flex flex-col gap-2 text-sm text-zinc-300 list-decimal list-inside">
+                <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-white font-medium underline underline-offset-2 hover:text-zinc-300">console.cloud.google.com</a> and create or pick a project.</li>
+                <li>Go to <span className="text-white font-medium">APIs &amp; Services → Library</span>, find <span className="text-white font-medium">YouTube Data API v3</span>, and enable it.</li>
+                <li>Go to <span className="text-white font-medium">Credentials → Create Credentials → OAuth client ID</span>. Choose <span className="text-white font-medium">Web application</span>.</li>
+                <li>
+                  Add these redirect URIs:
+                  <ul className="list-disc list-inside mt-1 ml-3 text-zinc-400">
+                    <li>https://streams.lukethe.dev</li>
+                    <li>http://localhost:5173</li>
+                  </ul>
+                </li>
+                <li>Copy the <span className="text-white font-medium">Client ID</span> (ends in <code className="text-zinc-400">.apps.googleusercontent.com</code>).</li>
+              </ol>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <p className="text-white text-sm font-semibold">Playlist IDs</p>
+              <p className="text-sm text-zinc-300">Comma-separate multiple IDs to pull from more than one playlist.</p>
+              <ul className="flex flex-col gap-1 text-sm text-zinc-400 list-disc list-inside mt-1">
+                <li><code className="text-zinc-300">LL</code> — Liked Videos (default, always accessible)</li>
+                <li><code className="text-zinc-300">WL</code> — Watch Later (removed from API, returns empty)</li>
+                <li>Custom: open a playlist on YouTube and copy the <code className="text-zinc-300">list=</code> value from the URL</li>
+              </ul>
+            </div>
           </>
         )}
 
@@ -112,6 +125,9 @@ export function OnboardingScreen({ onComplete }: Props) {
 
   const [youtubeClientId, setYoutubeClientId] = useState(savedConfig.youtubeClientId ?? '');
   const [revealClientId, setRevealClientId] = useState(false);
+  const [playlistIds, setPlaylistIds] = useState(
+    savedConfig.youtubePlaylistIds?.join(', ') ?? DEFAULT_PLAYLIST_IDS.join(', '),
+  );
 
   const [letterboxdUsername, setLetterboxdUsername] = useState(savedConfig.letterboxd?.username ?? '');
 
@@ -149,7 +165,8 @@ export function OnboardingScreen({ onComplete }: Props) {
   function connectYouTube() {
     const clientId = youtubeClientId.trim();
     if (!clientId) return;
-    saveConfig({ youtubeClientId: clientId });
+    const ids = playlistIds.split(',').map((s) => s.trim()).filter(Boolean);
+    saveConfig({ youtubeClientId: clientId, youtubePlaylistIds: ids.length > 0 ? ids : DEFAULT_PLAYLIST_IDS });
     initiateYouTubeAuth(clientId);
   }
 
@@ -177,7 +194,7 @@ export function OnboardingScreen({ onComplete }: Props) {
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <p className="text-white font-semibold">YouTube</p>
-                  <p className="text-zinc-500 text-sm">Watch Later playlist</p>
+                  <p className="text-zinc-500 text-sm">Liked Videos or any playlist</p>
                 </div>
                 {youtubeTokenOk && <StatusBadge state="ok" />}
                 {youtubeTokenExpired && <StatusBadge state="warn" />}
@@ -195,6 +212,17 @@ export function OnboardingScreen({ onComplete }: Props) {
                 {youtubeClientId && (
                   <RevealToggle revealed={revealClientId} onToggle={() => setRevealClientId((r) => !r)} />
                 )}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <input
+                  type="text"
+                  placeholder="Playlist IDs (comma-separated) — default: LL"
+                  value={playlistIds}
+                  onChange={(e) => setPlaylistIds(e.target.value)}
+                  className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/20"
+                />
+                <p className="text-zinc-600 text-xs">LL = Liked Videos · WL (Watch Later) no longer works via the API</p>
               </div>
 
               {youtubeClientId.trim() && (

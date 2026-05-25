@@ -7,12 +7,16 @@ export default async (request: Request): Promise<Response> => {
     return new Response('Invalid username', { status: 400 });
   }
 
-  const upstream = await fetch(`https://letterboxd.com/${username}/rss/`, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; StreamWatchlist/1.0)',
-      'Accept': 'application/rss+xml, application/xml, text/xml',
-    },
-  });
+  const rssHeaders = {
+    'User-Agent': 'Mozilla/5.0 (compatible; StreamWatchlist/1.0)',
+    'Accept': 'application/rss+xml, application/xml, text/xml',
+  };
+
+  // Prefer the watchlist-specific feed; fall back to the general activity feed
+  let upstream = await fetch(`https://letterboxd.com/${username}/watchlist/rss/`, { headers: rssHeaders });
+  if (!upstream.ok) {
+    upstream = await fetch(`https://letterboxd.com/${username}/rss/`, { headers: rssHeaders });
+  }
 
   if (!upstream.ok) {
     return new Response('Failed to fetch Letterboxd RSS', { status: upstream.status });

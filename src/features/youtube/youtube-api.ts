@@ -2,6 +2,8 @@ import type { WatchlistItem } from '../../types';
 
 const BASE = 'https://www.googleapis.com/youtube/v3';
 
+export const DEFAULT_PLAYLIST_IDS = ['LL'];
+
 function parseDurationMinutes(iso8601: string): number | null {
   const match = iso8601.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return null;
@@ -19,17 +21,17 @@ async function authedGet(path: string, params: Record<string, string>, token: st
   return res.json();
 }
 
-async function fetchAllPlaylistItems(token: string) {
+async function fetchPlaylistItems(token: string, playlistId: string) {
   const items: unknown[] = [];
   let pageToken: string | undefined;
   do {
     const data = await authedGet('/playlistItems', {
-      playlistId: 'WL',
+      playlistId,
       maxResults: '50',
       part: 'snippet',
       ...(pageToken ? { pageToken } : {}),
     }, token);
-    items.push(...data.items);
+    items.push(...(data.items ?? []));
     pageToken = data.nextPageToken;
   } while (pageToken);
   return items as Array<{ snippet: { title: string; description: string; thumbnails: Record<string, { url: string }>; resourceId: { videoId: string }; publishedAt: string } }>;
@@ -49,22 +51,34 @@ async function fetchDurations(videoIds: string[], token: string): Promise<Map<st
   return map;
 }
 
-export async function fetchWatchLater(accessToken: string): Promise<WatchlistItem[]> {
-  const playlist = await fetchAllPlaylistItems(accessToken);
-  const videoIds = playlist.map((i) => i.snippet.resourceId.videoId);
-  const durations = await fetchDurations(videoIds, accessToken);
+export async function fetchFromPlaylists(accessToken: string, playlistIds: string[]): Promise<WatchlistItem[]> {
+  const seen = new Set<string>();
+  const allItems: WatchlistItem[] = [];
 
-  return playlist.map((item) => {
-    const videoId = item.snippet.resourceId.videoId;
-    return {
-      id: `yt:${videoId}`,
-      source: 'youtube' as const,
-      title: item.snippet.title,
-      poster: item.snippet.thumbnails['high']?.url ?? item.snippet.thumbnails['medium']?.url ?? null,
-      synopsis: item.snippet.description || null,
-      runtimeMinutes: durations.get(videoId) ?? null,
-      url: `https://www.youtube.com/watch?v=${videoId}`,
-      savedAt: item.snippet.publishedAt,
-    };
-  });
+  for (const rawId of playlistIds) {
+    const playlistId = rawId.trim();
+    if (!playlistId) continue;
+
+    const playlist = await fetchPlaylistItems(accessToken, playlistId);
+    const videoIds = playlist.map((i) => i.snippet.resourceId.videoId);
+    const durations = await fetchDurations(videoIds, accessToken);
+
+    for (const item of playlist) {
+      const videoId = item.snippet.resourceId.videoId;
+      if (seen.has(videoId)) continue;
+      seen.add(videoId);
+      allItems.push({
+        id: `yt:${videoId}`,
+        source: 'youtube' as const,
+        title: item.snippet.title,
+        poster: item.snippet.thumbnails['high']?.url ?? item.snippet.thumbnails['medium']?.url ?? null,
+        synopsis: item.snippet.description || null,
+        runtimeMinutes: durations.get(videoId) ?? null,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        savedAt: item.snippet.publishedAt,
+      });
+    }
+  }
+
+  return allItems;
 }

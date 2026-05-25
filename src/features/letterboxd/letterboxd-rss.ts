@@ -2,19 +2,44 @@ export interface RssFilm {
   filmTitle: string;
   filmYear: string | null;
   letterboxdUrl: string;
+  tmdbId: number | null;
+}
+
+function childText(el: Element, localName: string): string | null {
+  for (const child of Array.from(el.children)) {
+    if (child.localName === localName) return child.textContent?.trim() ?? null;
+  }
+  return null;
 }
 
 export function parseRssFeed(xml: string): RssFilm[] {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   return Array.from(doc.querySelectorAll('item')).map((item) => {
-    const rawTitle = item.querySelector('title')?.textContent?.trim() ?? '';
     const link = item.querySelector('link')?.textContent?.trim() ?? '';
-    // Letterboxd RSS titles: "Film Title, YYYY"
-    const match = rawTitle.match(/^(.+?),\s*(\d{4})$/);
+
+    // Letterboxd embeds explicit namespace elements — more reliable than title parsing
+    const nsTitle = childText(item, 'filmTitle');
+    const nsYear = childText(item, 'filmYear');
+    const nsTmdbId = childText(item, 'movieId'); // tmdb:movieId
+
+    let filmTitle: string;
+    let filmYear: string | null;
+
+    if (nsTitle) {
+      filmTitle = nsTitle;
+      filmYear = nsYear;
+    } else {
+      const rawTitle = item.querySelector('title')?.textContent?.trim() ?? '';
+      const match = rawTitle.match(/^(.+?),\s*(\d{4})$/);
+      filmTitle = match ? match[1].trim() : rawTitle;
+      filmYear = match ? match[2] : null;
+    }
+
     return {
-      filmTitle: match ? match[1].trim() : rawTitle,
-      filmYear: match ? match[2] : null,
+      filmTitle,
+      filmYear,
       letterboxdUrl: link,
+      tmdbId: nsTmdbId ? parseInt(nsTmdbId, 10) : null,
     };
   });
 }
