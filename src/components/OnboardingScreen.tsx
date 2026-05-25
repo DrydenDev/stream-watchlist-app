@@ -12,7 +12,7 @@ type VerifyState = 'idle' | 'checking' | 'ok' | 'fail';
 async function checkTmdbKey(apiKey: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `https://api.themoviedb.org/3/authentication?api_key=${encodeURIComponent(apiKey)}`,
+      `https://api.themoviedb.org/3/configuration?api_key=${encodeURIComponent(apiKey)}`,
     );
     return res.ok;
   } catch {

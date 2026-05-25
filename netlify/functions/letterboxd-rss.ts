@@ -7,8 +7,11 @@ export default async (request: Request): Promise<Response> => {
     return new Response('Invalid username', { status: 400 });
   }
 
-  const upstream = await fetch(`https://letterboxd.com/${username}/watchlist/rss/`, {
-    headers: { 'User-Agent': 'StreamWatchlist/1.0' },
+  const upstream = await fetch(`https://letterboxd.com/${username}/rss/`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; StreamWatchlist/1.0)',
+      'Accept': 'application/rss+xml, application/xml, text/xml',
+    },
   });
 
   if (!upstream.ok) {
