@@ -11,11 +11,19 @@ interface TmdbSearchResult {
   poster_path: string | null;
 }
 
+interface TmdbProviderEntry {
+  provider_name: string;
+}
+
 interface TmdbMovieDetails {
   runtime: number | null;
   overview: string;
   poster_path: string | null;
   title: string;
+  release_date: string;
+  'watch/providers': {
+    results: Record<string, { flatrate?: TmdbProviderEntry[] }>;
+  } | null;
 }
 
 function tmdbHeaders(token: string) {
@@ -31,12 +39,21 @@ async function searchMovie(title: string, year: string | null, token: string): P
 }
 
 async function fetchMovieDetails(tmdbId: number, token: string): Promise<TmdbMovieDetails | null> {
-  const res = await fetch(`${BASE}/movie/${tmdbId}`, { headers: tmdbHeaders(token) });
+  const res = await fetch(
+    `${BASE}/movie/${tmdbId}?append_to_response=watch%2Fproviders`,
+    { headers: tmdbHeaders(token) },
+  );
   if (!res.ok) return null;
   return res.json();
 }
 
-function filmToItem(film: LetterboxdFilm, details: TmdbMovieDetails | null, _tmdbId: number | null): WatchlistItem {
+function extractUsProviders(details: TmdbMovieDetails): string[] | null {
+  const us = details['watch/providers']?.results?.['US'];
+  if (!us) return null;
+  return (us.flatrate ?? []).map((p) => p.provider_name);
+}
+
+function filmToItem(film: LetterboxdFilm, details: TmdbMovieDetails | null): WatchlistItem {
   return {
     id: `lb:${film.url}`,
     source: 'letterboxd',
@@ -44,6 +61,8 @@ function filmToItem(film: LetterboxdFilm, details: TmdbMovieDetails | null, _tmd
     poster: details?.poster_path ? `${POSTER_BASE}${details.poster_path}` : null,
     synopsis: details?.overview || null,
     runtimeMinutes: details?.runtime ?? null,
+    releaseDate: details?.release_date ?? null,
+    streamingProviders: details ? extractUsProviders(details) : null,
     url: film.url,
     savedAt: new Date().toISOString(),
   };
@@ -55,11 +74,11 @@ export async function enrichWithTmdb(films: LetterboxdFilm[], token: string): Pr
   for (const film of films) {
     const tmdbId = film.tmdbId ?? (await searchMovie(film.title, film.year, token))?.id ?? null;
     if (!tmdbId) {
-      results.push(filmToItem(film, null, null));
+      results.push(filmToItem(film, null));
       continue;
     }
     const details = await fetchMovieDetails(tmdbId, token);
-    results.push(filmToItem(film, details, tmdbId));
+    results.push(filmToItem(film, details));
   }
 
   return results;

@@ -4,6 +4,7 @@ import { DEFAULT_PLAYLIST_IDS } from '../features/youtube/youtube-api';
 import { getConfig, saveConfig } from '../lib/storage';
 import { parseLbCsv } from '../features/letterboxd/letterboxd-csv';
 import { setLbFilms } from '../lib/letterboxd-store';
+import { clearDismissedBySource } from '../lib/dismissed-store';
 
 interface Props {
   onComplete: () => void;
@@ -185,6 +186,7 @@ export function OnboardingScreen({ onComplete }: Props) {
       const films = parseLbCsv(csv);
       console.log(`[letterboxd] parsed ${films.length} films from CSV`);
       setLbFilms(films);
+      clearDismissedBySource('lb');
       saveConfig({ letterboxd: { importedAt: new Date().toISOString(), count: films.length } });
       setImportedCount(films.length);
     };

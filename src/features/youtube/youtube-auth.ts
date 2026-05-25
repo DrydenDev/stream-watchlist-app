@@ -1,15 +1,50 @@
 import type { YouTubeToken } from '../../types';
 
 const SCOPE = 'https://www.googleapis.com/auth/youtube.readonly';
+const OAUTH_BASE = 'https://accounts.google.com/o/oauth2/v2/auth';
 
-export function initiateYouTubeAuth(clientId: string): void {
+function buildOAuthUrl(clientId: string, extra: Record<string, string> = {}): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: window.location.origin,
     response_type: 'token',
     scope: SCOPE,
+    ...extra,
   });
-  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  return `${OAUTH_BASE}?${params}`;
+}
+
+export function initiateYouTubeAuth(clientId: string): void {
+  window.location.href = buildOAuthUrl(clientId);
+}
+
+export function silentRefreshToken(clientId: string): Promise<YouTubeToken | null> {
+  return new Promise((resolve) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'display:none;position:fixed;';
+    iframe.src = buildOAuthUrl(clientId, { prompt: 'none' });
+
+    const cleanup = (token: YouTubeToken | null) => {
+      clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+      iframe.remove();
+      resolve(token);
+    };
+
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.data?.type !== 'yt-token-silent') return;
+      cleanup((e.data.token as YouTubeToken) ?? null);
+    };
+
+    // Give up after 10 s — covers blocked 3rd-party cookies and network failures.
+    const timer = setTimeout(() => {
+      console.warn('[youtube] silent refresh timed out');
+      cleanup(null);
+    }, 10_000);
+
+    window.addEventListener('message', onMessage);
+    document.body.appendChild(iframe);
+  });
 }
 
 export function parseTokenFromHash(hash: string): YouTubeToken | null {

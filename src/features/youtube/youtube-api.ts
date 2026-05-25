@@ -74,6 +74,8 @@ export async function fetchFromPlaylists(accessToken: string, playlistIds: strin
         poster: item.snippet.thumbnails['high']?.url ?? item.snippet.thumbnails['medium']?.url ?? null,
         synopsis: item.snippet.description || null,
         runtimeMinutes: durations.get(videoId) ?? null,
+        releaseDate: null,
+        streamingProviders: null,
         url: `https://www.youtube.com/watch?v=${videoId}`,
         savedAt: item.snippet.publishedAt,
       });

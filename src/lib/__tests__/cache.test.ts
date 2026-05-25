@@ -9,6 +9,8 @@ const ITEM: WatchlistItem = {
   poster: null,
   synopsis: null,
   runtimeMinutes: 10,
+  releaseDate: null,
+  streamingProviders: null,
   url: 'https://youtube.com/watch?v=abc123',
   savedAt: '2026-01-01T00:00:00Z',
 };

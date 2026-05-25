@@ -2,14 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import type { WatchlistItem } from './types';
 import { getConfig, saveConfig } from './lib/storage';
 import { getCachedList, setCachedList, clearCache } from './lib/cache';
-import { parseTokenFromHash, isTokenExpired } from './features/youtube/youtube-auth';
+import { parseTokenFromHash, isTokenExpired, silentRefreshToken } from './features/youtube/youtube-auth';
 import { fetchFromPlaylists, DEFAULT_PLAYLIST_IDS } from './features/youtube/youtube-api';
 import { enrichWithTmdb } from './features/letterboxd/tmdb';
 import { getLbFilms } from './lib/letterboxd-store';
+import { getDismissed, dismissItem, clearDismissed, clearDismissedBySource } from './lib/dismissed-store';
+import { STREAMING_SERVICES, YOUTUBE_TMDB_NAMES, itemMatchesService } from './lib/streaming-services';
+import type { ServiceFilterId } from './lib/streaming-services';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { WatchlistCard } from './components/WatchlistCard';
 
 type AppState = 'onboarding' | 'loading' | 'ready' | 'error';
+type ActiveFilter = 'all' | 'youtube' | 'letterboxd' | 'short' | ServiceFilterId;
 
 function hasAnySources(config: ReturnType<typeof getConfig>): boolean {
   return config.youtube !== null || config.letterboxd !== null;
@@ -18,7 +22,57 @@ function hasAnySources(config: ReturnType<typeof getConfig>): boolean {
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
   const [items, setItems] = useState<WatchlistItem[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => getDismissed());
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [error, setError] = useState<string | null>(null);
+
+  const handleDismiss = useCallback((id: string) => {
+    dismissItem(id);
+    setDismissed(new Set(getDismissed()));
+  }, []);
+
+  const handleRestoreAll = useCallback(() => {
+    clearDismissed();
+    setDismissed(new Set());
+  }, []);
+
+  const visibleItems = items
+    .filter((item) => !dismissed.has(item.id))
+    .filter((item) => {
+      // Auto-hide Letterboxd movies that haven't been released yet.
+      if (item.source === 'letterboxd' && item.releaseDate) {
+        return new Date(item.releaseDate) <= new Date();
+      }
+      return true;
+    });
+
+  const hasYoutube = visibleItems.some(
+    (i) => i.source === 'youtube' || YOUTUBE_TMDB_NAMES.some((n) => i.streamingProviders?.includes(n)),
+  );
+  const hasLetterboxd = visibleItems.some((i) => i.source === 'letterboxd');
+  const hasShort = visibleItems.some((i) => i.runtimeMinutes !== null && i.runtimeMinutes < 30);
+  const availableServiceIds = new Set(
+    visibleItems.flatMap((item) =>
+      item.streamingProviders
+        ? STREAMING_SERVICES.filter((svc) => itemMatchesService(item.streamingProviders!, svc)).map((s) => s.id)
+        : [],
+    ),
+  );
+
+  const filteredItems = visibleItems.filter((item) => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'youtube') {
+      return (
+        item.source === 'youtube' ||
+        YOUTUBE_TMDB_NAMES.some((n) => item.streamingProviders?.includes(n))
+      );
+    }
+    if (activeFilter === 'letterboxd') return item.source === 'letterboxd';
+    if (activeFilter === 'short') return item.runtimeMinutes !== null && item.runtimeMinutes < 30;
+    const svc = STREAMING_SERVICES.find((s) => s.id === activeFilter);
+    if (svc) return item.streamingProviders ? itemMatchesService(item.streamingProviders, svc) : false;
+    return true;
+  });
 
   const fetchAll = useCallback(async () => {
     setAppState('loading');
@@ -27,9 +81,26 @@ export default function App() {
     const config = getConfig();
     const fetchers: Promise<WatchlistItem[]>[] = [];
 
-    if (config.youtube && !isTokenExpired(config.youtube)) {
+    let youtubeToken = config.youtube;
+
+    if (youtubeToken && isTokenExpired(youtubeToken) && config.youtubeClientId) {
+      console.log('[youtube] token expired — attempting silent refresh');
+      const refreshed = await silentRefreshToken(config.youtubeClientId);
+      if (refreshed) {
+        saveConfig({ youtube: refreshed });
+        youtubeToken = refreshed;
+        console.log('[youtube] silent refresh succeeded');
+      } else {
+        console.warn('[youtube] silent refresh failed — skipping YouTube fetch');
+        youtubeToken = null;
+      }
+    }
+
+    if (youtubeToken && !isTokenExpired(youtubeToken)) {
+      clearDismissedBySource('yt');
+      setDismissed(new Set(getDismissed()));
       const playlistIds = config.youtubePlaylistIds ?? DEFAULT_PLAYLIST_IDS;
-      fetchers.push(fetchFromPlaylists(config.youtube.accessToken, playlistIds));
+      fetchers.push(fetchFromPlaylists(youtubeToken.accessToken, playlistIds));
     }
 
     if (config.letterboxd && config.tmdbApiKey) {
@@ -88,6 +159,14 @@ export default function App() {
       <header className="sticky top-0 z-10 bg-black/80 backdrop-blur flex items-center justify-between px-6 py-4">
         <h1 className="text-white font-bold text-xl tracking-tight">Stream Watchlist</h1>
         <div className="flex gap-3">
+          {dismissed.size > 0 && (
+            <button
+              onClick={handleRestoreAll}
+              className="text-zinc-500 hover:text-white text-sm transition-colors"
+            >
+              Restore {dismissed.size}
+            </button>
+          )}
           <button
             onClick={() => { clearCache(); fetchAll(); }}
             className="text-zinc-500 hover:text-white text-sm transition-colors"
@@ -124,11 +203,36 @@ export default function App() {
         )}
 
         {appState === 'ready' && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {items.map((item) => (
-              <WatchlistCard key={item.id} item={item} />
-            ))}
-          </div>
+          <>
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-none">
+              {(
+                [
+                  { id: 'all', label: 'All' },
+                  ...(hasYoutube ? [{ id: 'youtube', label: 'YouTube' }] : []),
+                  ...(hasLetterboxd ? [{ id: 'letterboxd', label: 'Letterboxd' }] : []),
+                  ...STREAMING_SERVICES.filter((s) => availableServiceIds.has(s.id)).map((s) => ({ id: s.id, label: s.label })),
+                  ...(hasShort ? [{ id: 'short', label: '< 30 min' }] : []),
+                ] as { id: ActiveFilter; label: string }[]
+              ).map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveFilter(id)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                    activeFilter === id
+                      ? 'bg-white text-black'
+                      : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {filteredItems.map((item) => (
+                <WatchlistCard key={item.id} item={item} onDismiss={handleDismiss} />
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
