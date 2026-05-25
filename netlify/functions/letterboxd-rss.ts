@@ -15,9 +15,10 @@ export default async (request: Request): Promise<Response> => {
     'Accept': 'application/rss+xml, application/xml, text/xml',
   };
 
-  const upstream = await fetch(url, { headers: rssHeaders });
+  const upstream = await fetch(url, { headers: rssHeaders, redirect: 'follow' });
 
   console.log(`[letterboxd-rss] response status: ${upstream.status}`);
+  console.log(`[letterboxd-rss] final URL (after redirects): ${upstream.url}`);
   console.log(`[letterboxd-rss] content-type: ${upstream.headers.get('content-type')}`);
 
   if (upstream.status === 403) {
