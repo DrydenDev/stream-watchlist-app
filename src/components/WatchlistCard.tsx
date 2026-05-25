@@ -17,11 +17,26 @@ export function WatchlistCard({ item }: { item: WatchlistItem }) {
       className="group relative flex flex-col overflow-hidden rounded-xl bg-zinc-900 aspect-[2/3] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
     >
       {item.poster ? (
-        <img
-          src={item.poster}
-          alt={item.title}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-        />
+        item.source === 'youtube' ? (
+          <>
+            {/* Blurred fill for 16:9 thumbnails in a portrait card */}
+            <div
+              className="absolute inset-0 scale-110 blur-xl"
+              style={{ backgroundImage: `url(${item.poster})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            />
+            <img
+              src={item.poster}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+            />
+          </>
+        ) : (
+          <img
+            src={item.poster}
+            alt={item.title}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        )
       ) : (
         <div className="absolute inset-0 bg-zinc-800 flex items-center justify-center">
           <span className="text-zinc-600 text-4xl">🎬</span>
