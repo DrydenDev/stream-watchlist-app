@@ -9,11 +9,11 @@ interface Props {
 type DrawerTopic = 'youtube' | 'tmdb' | null;
 type VerifyState = 'idle' | 'checking' | 'ok' | 'fail';
 
-async function checkTmdbKey(apiKey: string): Promise<boolean> {
+async function checkTmdbToken(token: string): Promise<boolean> {
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/configuration?api_key=${encodeURIComponent(apiKey)}`,
-    );
+    const res = await fetch('https://api.themoviedb.org/3/configuration', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return res.ok;
   } catch {
     return false;
@@ -65,7 +65,7 @@ function HelpDrawer({ topic, onClose }: { topic: DrawerTopic; onClose: () => voi
               <li>Create a free account at <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener noreferrer" className="text-white font-medium underline underline-offset-2 hover:text-zinc-300">themoviedb.org</a>.</li>
               <li>Go to your account settings (avatar → Settings) and choose <span className="text-white font-medium">API</span> in the left sidebar.</li>
               <li>Click <span className="text-white font-medium">Create</span> under the Developer section and fill in the short form (personal use is fine).</li>
-              <li>Copy the <span className="text-white font-medium">API Key (v3 auth)</span> — it's a long hex string — and paste it here.</li>
+              <li>Copy the <span className="text-white font-medium">API Read Access Token (v4 auth)</span> — it's a long JWT string — and paste it here.</li>
             </ol>
             <p className="text-zinc-500 text-xs">TMDB is used to fetch movie posters, synopses, and runtimes for your Letterboxd watchlist. Without it you'll still see titles but no artwork.</p>
           </>
@@ -127,7 +127,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   useEffect(() => {
     if (!savedConfig.tmdbApiKey) return;
     setTmdbVerify('checking');
-    checkTmdbKey(savedConfig.tmdbApiKey).then((ok) => setTmdbVerify(ok ? 'ok' : 'fail'));
+    checkTmdbToken(savedConfig.tmdbApiKey).then((ok) => setTmdbVerify(ok ? 'ok' : 'fail'));
   }, [savedConfig.tmdbApiKey]);
 
   function handleTmdbKeyChange(value: string) {
@@ -139,7 +139,7 @@ export function OnboardingScreen({ onComplete }: Props) {
     const key = tmdbKey.trim();
     if (!key) return;
     setTmdbVerify('checking');
-    const ok = await checkTmdbKey(key);
+    const ok = await checkTmdbToken(key);
     setTmdbVerify(ok ? 'ok' : 'fail');
   }
 
@@ -230,7 +230,7 @@ export function OnboardingScreen({ onComplete }: Props) {
                   <div className="relative flex-1">
                     <input
                       type={revealTmdbKey ? 'text' : 'password'}
-                      placeholder="TMDB API key (for posters & metadata)"
+                      placeholder="TMDB Read Access Token (for posters & metadata)"
                       value={tmdbKey}
                       onChange={(e) => handleTmdbKeyChange(e.target.value)}
                       className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-lg px-3 py-2 pr-14 text-sm outline-none focus:ring-2 focus:ring-white/20"

@@ -18,16 +18,20 @@ interface TmdbMovieDetails {
   title: string;
 }
 
-async function searchMovie(title: string, year: string | null, apiKey: string): Promise<TmdbSearchResult | null> {
-  const params = new URLSearchParams({ api_key: apiKey, query: title, ...(year ? { year } : {}) });
-  const res = await fetch(`${BASE}/search/movie?${params}`);
+function tmdbHeaders(token: string) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+async function searchMovie(title: string, year: string | null, token: string): Promise<TmdbSearchResult | null> {
+  const params = new URLSearchParams({ query: title, ...(year ? { year } : {}) });
+  const res = await fetch(`${BASE}/search/movie?${params}`, { headers: tmdbHeaders(token) });
   if (!res.ok) return null;
   const data = await res.json();
   return (data.results[0] as TmdbSearchResult) ?? null;
 }
 
-async function fetchMovieDetails(tmdbId: number, apiKey: string): Promise<TmdbMovieDetails | null> {
-  const res = await fetch(`${BASE}/movie/${tmdbId}?api_key=${apiKey}`);
+async function fetchMovieDetails(tmdbId: number, token: string): Promise<TmdbMovieDetails | null> {
+  const res = await fetch(`${BASE}/movie/${tmdbId}`, { headers: tmdbHeaders(token) });
   if (!res.ok) return null;
   return res.json();
 }
@@ -45,16 +49,16 @@ function filmToItem(film: RssFilm, details: TmdbMovieDetails | null, _tmdbId: nu
   };
 }
 
-export async function enrichWithTmdb(films: RssFilm[], apiKey: string): Promise<WatchlistItem[]> {
+export async function enrichWithTmdb(films: RssFilm[], token: string): Promise<WatchlistItem[]> {
   const results: WatchlistItem[] = [];
 
   for (const film of films) {
-    const match = await searchMovie(film.filmTitle, film.filmYear, apiKey);
+    const match = await searchMovie(film.filmTitle, film.filmYear, token);
     if (!match) {
       results.push(filmToItem(film, null, null));
       continue;
     }
-    const details = await fetchMovieDetails(match.id, apiKey);
+    const details = await fetchMovieDetails(match.id, token);
     results.push(filmToItem(film, details, match.id));
   }
 
