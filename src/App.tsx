@@ -95,8 +95,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4">
+    <div className="h-screen bg-black flex flex-col">
+      <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
         <h1 className="text-white font-bold text-xl tracking-tight">Stream Watchlist</h1>
         <div className="flex gap-3">
           <button
@@ -114,7 +114,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 px-6 pb-6">
+      <main className="flex-1 min-h-0 px-6 flex flex-col">
         {appState === 'loading' && (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -135,7 +135,7 @@ export default function App() {
         )}
 
         {appState === 'ready' && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-3 grid-rows-3 sm:grid-rows-2 gap-3 pb-3">
             {displayed.map((item) => (
               <WatchlistCard key={item.id} item={item} />
             ))}
@@ -147,7 +147,7 @@ export default function App() {
       </main>
 
       {appState === 'ready' && (
-        <footer className="px-6 pb-8 flex justify-center">
+        <footer className="flex-shrink-0 px-6 pb-5 pt-1 flex justify-center">
           <button
             onClick={() => reshuffle(allItems)}
             className="px-6 py-3 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
