@@ -14,7 +14,7 @@ export function WatchlistCard({ item }: { item: WatchlistItem }) {
       href={item.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative flex flex-col overflow-hidden rounded-xl bg-zinc-900 h-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      className="group relative flex flex-col overflow-hidden rounded-xl bg-zinc-900 aspect-[2/3] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
     >
       {item.poster ? (
         item.source === 'youtube' ? (

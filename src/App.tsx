@@ -2,16 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import type { WatchlistItem } from './types';
 import { getConfig, saveConfig } from './lib/storage';
 import { getCachedList, setCachedList, clearCache } from './lib/cache';
-import { pickRandom } from './lib/random';
 import { parseTokenFromHash, isTokenExpired } from './features/youtube/youtube-auth';
 import { fetchFromPlaylists, DEFAULT_PLAYLIST_IDS } from './features/youtube/youtube-api';
 import { enrichWithTmdb } from './features/letterboxd/tmdb';
 import { getLbFilms } from './lib/letterboxd-store';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { WatchlistCard } from './components/WatchlistCard';
-import { PlaceholderCard } from './components/PlaceholderCard';
-
-const CARD_COUNT = 6;
 
 type AppState = 'onboarding' | 'loading' | 'ready' | 'error';
 
@@ -21,13 +17,8 @@ function hasAnySources(config: ReturnType<typeof getConfig>): boolean {
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
-  const [allItems, setAllItems] = useState<WatchlistItem[]>([]);
-  const [displayed, setDisplayed] = useState<WatchlistItem[]>([]);
+  const [items, setItems] = useState<WatchlistItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const reshuffle = useCallback((items: WatchlistItem[]) => {
-    setDisplayed(pickRandom(items, CARD_COUNT));
-  }, []);
 
   const fetchAll = useCallback(async () => {
     setAppState('loading');
@@ -51,21 +42,19 @@ export default function App() {
 
     try {
       const results = await Promise.allSettled(fetchers);
-      const items: WatchlistItem[] = results.flatMap((r) =>
+      const fetched: WatchlistItem[] = results.flatMap((r) =>
         r.status === 'fulfilled' ? r.value : [],
       );
-      setCachedList(items);
-      setAllItems(items);
-      reshuffle(items);
+      setCachedList(fetched);
+      setItems(fetched);
       setAppState('ready');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch your lists');
       setAppState('error');
     }
-  }, [reshuffle]);
+  }, []);
 
   useEffect(() => {
-    // Handle YouTube OAuth callback (token in URL hash)
     const token = parseTokenFromHash(window.location.hash);
     if (token) {
       saveConfig({ youtube: token });
@@ -82,22 +71,21 @@ export default function App() {
     const cached = getCachedList();
     if (cached && cached.length > 0) {
       console.log(`[app] serving ${cached.length} items from cache — click Refresh to re-fetch`);
-      setAllItems(cached);
-      reshuffle(cached);
+      setItems(cached);
       setAppState('ready');
       return;
     }
 
     fetchAll();
-  }, [fetchAll, reshuffle]);
+  }, [fetchAll]);
 
   if (appState === 'onboarding') {
     return <OnboardingScreen onComplete={() => fetchAll()} />;
   }
 
   return (
-    <div className="h-screen bg-black flex flex-col">
-      <header className="flex-shrink-0 flex items-center justify-between px-6 py-4">
+    <div className="min-h-screen bg-black flex flex-col">
+      <header className="sticky top-0 z-10 bg-black/80 backdrop-blur flex items-center justify-between px-6 py-4">
         <h1 className="text-white font-bold text-xl tracking-tight">Stream Watchlist</h1>
         <div className="flex gap-3">
           <button
@@ -115,7 +103,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 px-6 flex flex-col">
+      <main className="flex-1 px-6 py-4">
         {appState === 'loading' && (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -136,27 +124,13 @@ export default function App() {
         )}
 
         {appState === 'ready' && (
-          <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-3 grid-rows-3 sm:grid-rows-2 gap-3 pb-3">
-            {displayed.map((item) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {items.map((item) => (
               <WatchlistCard key={item.id} item={item} />
-            ))}
-            {Array.from({ length: Math.max(0, CARD_COUNT - displayed.length) }).map((_, i) => (
-              <PlaceholderCard key={`placeholder-${i}`} />
             ))}
           </div>
         )}
       </main>
-
-      {appState === 'ready' && (
-        <footer className="flex-shrink-0 px-6 pb-5 pt-1 flex justify-center">
-          <button
-            onClick={() => reshuffle(allItems)}
-            className="px-6 py-3 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
-          >
-            <span>🔀</span> Reshuffle
-          </button>
-        </footer>
-      )}
     </div>
   );
 }
