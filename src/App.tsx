@@ -51,11 +51,11 @@ export default function App() {
   );
   const hasLetterboxd = visibleItems.some((i) => i.source === 'letterboxd');
   const hasShort = visibleItems.some((i) => i.runtimeMinutes !== null && i.runtimeMinutes < 30);
-  const hasFree = visibleItems.some((i) => i.freeProviders !== null && i.freeProviders.length > 0);
-  const hasSubscription = visibleItems.some((i) => i.streamingProviders !== null && i.streamingProviders.length > 0);
+  const hasFree = visibleItems.some((i) => (i.freeProviders?.length ?? 0) > 0);
+  const hasSubscription = visibleItems.some((i) => (i.streamingProviders?.length ?? 0) > 0);
   const availableServiceIds = new Set(
     visibleItems.flatMap((item) =>
-      item.streamingProviders
+      item.streamingProviders?.length
         ? STREAMING_SERVICES.filter((svc) => itemMatchesService(item.streamingProviders!, svc)).map((s) => s.id)
         : [],
     ),
@@ -70,11 +70,11 @@ export default function App() {
       );
     }
     if (activeFilter === 'letterboxd') return item.source === 'letterboxd';
-    if (activeFilter === 'free') return item.freeProviders !== null && item.freeProviders.length > 0;
-    if (activeFilter === 'subscription') return item.streamingProviders !== null && item.streamingProviders.length > 0;
+    if (activeFilter === 'free') return (item.freeProviders?.length ?? 0) > 0;
+    if (activeFilter === 'subscription') return (item.streamingProviders?.length ?? 0) > 0;
     if (activeFilter === 'short') return item.runtimeMinutes !== null && item.runtimeMinutes < 30;
     const svc = STREAMING_SERVICES.find((s) => s.id === activeFilter);
-    if (svc) return item.streamingProviders ? itemMatchesService(item.streamingProviders, svc) : false;
+    if (svc) return item.streamingProviders?.length ? itemMatchesService(item.streamingProviders, svc) : false;
     return true;
   });
 
