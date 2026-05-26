@@ -112,6 +112,32 @@ describe('enrichWithTmdb — free providers', () => {
   });
 });
 
+describe('enrichWithTmdb — rent providers', () => {
+  it('merges rent and buy keys into rentProviders', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify(mockDetails({
+          'watch/providers': {
+            results: { US: { rent: [{ provider_name: 'Apple TV' }], buy: [{ provider_name: 'Amazon Video' }] } },
+          },
+        })),
+        { status: 200 },
+      ),
+    );
+    const [item] = await enrichWithTmdb([FILM], 'token');
+    expect(item.rentProviders).toEqual(['Apple TV', 'Amazon Video']);
+  });
+
+  it('returns null rentProviders when there is no TMDB match', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200 }),
+    );
+    const filmWithoutId: LetterboxdFilm = { ...FILM, tmdbId: null };
+    const [item] = await enrichWithTmdb([filmWithoutId], 'token');
+    expect(item.rentProviders).toBeNull();
+  });
+});
+
 describe('enrichWithTmdb — release date', () => {
   it('stores release_date from TMDB details', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(

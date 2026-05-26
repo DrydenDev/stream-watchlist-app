@@ -10,6 +10,7 @@ export interface WatchlistItem {
   releaseDate: string | null;
   streamingProviders: string[] | null; // US flatrate (subscription) provider names; null = no TMDB data
   freeProviders: string[] | null;      // US free/ad-supported provider names; null = no TMDB data
+  rentProviders: string[] | null;      // US rent+buy provider names; null = no TMDB data
   url: string;
   savedAt: string;
 }

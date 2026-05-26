@@ -13,7 +13,7 @@ import { OnboardingScreen } from './components/OnboardingScreen';
 import { WatchlistCard } from './components/WatchlistCard';
 
 type AppState = 'onboarding' | 'loading' | 'ready' | 'error';
-type ActiveFilter = 'all' | 'youtube' | 'letterboxd' | 'free' | 'subscription' | 'short' | ServiceFilterId;
+type ActiveFilter = 'all' | 'youtube' | 'letterboxd' | 'free' | 'subscription' | 'rent' | 'short' | ServiceFilterId;
 
 function hasAnySources(config: ReturnType<typeof getConfig>): boolean {
   return config.youtube !== null || config.letterboxd !== null;
@@ -53,6 +53,7 @@ export default function App() {
   const hasShort = visibleItems.some((i) => i.runtimeMinutes !== null && i.runtimeMinutes < 30);
   const hasFree = visibleItems.some((i) => (i.freeProviders?.length ?? 0) > 0);
   const hasSubscription = visibleItems.some((i) => (i.streamingProviders?.length ?? 0) > 0);
+  const hasRent = visibleItems.some((i) => (i.rentProviders?.length ?? 0) > 0);
   const availableServiceIds = new Set(
     visibleItems.flatMap((item) =>
       item.streamingProviders?.length
@@ -72,6 +73,7 @@ export default function App() {
     if (activeFilter === 'letterboxd') return item.source === 'letterboxd';
     if (activeFilter === 'free') return (item.freeProviders?.length ?? 0) > 0;
     if (activeFilter === 'subscription') return (item.streamingProviders?.length ?? 0) > 0;
+    if (activeFilter === 'rent') return (item.rentProviders?.length ?? 0) > 0;
     if (activeFilter === 'short') return item.runtimeMinutes !== null && item.runtimeMinutes < 30;
     const svc = STREAMING_SERVICES.find((s) => s.id === activeFilter);
     if (svc) return item.streamingProviders?.length ? itemMatchesService(item.streamingProviders, svc) : false;
@@ -228,6 +230,7 @@ export default function App() {
                   ...(hasLetterboxd ? [{ id: 'letterboxd', label: 'Letterboxd' }] : []),
                   ...(hasFree ? [{ id: 'free', label: 'Free' }] : []),
                   ...(hasSubscription ? [{ id: 'subscription', label: 'Subscription' }] : []),
+                  ...(hasRent ? [{ id: 'rent', label: 'Rent / Buy' }] : []),
                   ...STREAMING_SERVICES.filter((s) => availableServiceIds.has(s.id)).map((s) => ({ id: s.id, label: s.label })),
                   ...(hasShort ? [{ id: 'short', label: '< 30 min' }] : []),
                 ] as { id: ActiveFilter; label: string }[]
