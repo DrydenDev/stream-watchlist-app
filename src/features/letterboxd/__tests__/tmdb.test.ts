@@ -67,6 +67,51 @@ describe('enrichWithTmdb — streaming providers', () => {
   });
 });
 
+describe('enrichWithTmdb — free providers', () => {
+  it('extracts US free provider names from the free key', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify(mockDetails({ 'watch/providers': { results: { US: { free: [{ provider_name: 'Tubi TV' }] } } } })),
+        { status: 200 },
+      ),
+    );
+    const [item] = await enrichWithTmdb([FILM], 'token');
+    expect(item.freeProviders).toEqual(['Tubi TV']);
+  });
+
+  it('merges free and ads keys into freeProviders', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify(mockDetails({
+          'watch/providers': {
+            results: { US: { free: [{ provider_name: 'Tubi TV' }], ads: [{ provider_name: 'Pluto TV' }] } },
+          },
+        })),
+        { status: 200 },
+      ),
+    );
+    const [item] = await enrichWithTmdb([FILM], 'token');
+    expect(item.freeProviders).toEqual(['Tubi TV', 'Pluto TV']);
+  });
+
+  it('returns empty freeProviders when US has no free or ads providers', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(mockDetails({ 'watch/providers': { results: { US: {} } } })), { status: 200 }),
+    );
+    const [item] = await enrichWithTmdb([FILM], 'token');
+    expect(item.freeProviders).toEqual([]);
+  });
+
+  it('returns null freeProviders when there is no TMDB match', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200 }),
+    );
+    const filmWithoutId: LetterboxdFilm = { ...FILM, tmdbId: null };
+    const [item] = await enrichWithTmdb([filmWithoutId], 'token');
+    expect(item.freeProviders).toBeNull();
+  });
+});
+
 describe('enrichWithTmdb — release date', () => {
   it('stores release_date from TMDB details', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(

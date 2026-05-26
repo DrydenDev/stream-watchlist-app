@@ -76,6 +76,7 @@ export async function fetchFromPlaylists(accessToken: string, playlistIds: strin
         runtimeMinutes: durations.get(videoId) ?? null,
         releaseDate: null,
         streamingProviders: null,
+        freeProviders: null,
         url: `https://www.youtube.com/watch?v=${videoId}`,
         savedAt: item.snippet.publishedAt,
       });

@@ -8,7 +8,8 @@ export interface WatchlistItem {
   synopsis: string | null;
   runtimeMinutes: number | null;
   releaseDate: string | null;
-  streamingProviders: string[] | null; // US flatrate provider names; null = no TMDB data
+  streamingProviders: string[] | null; // US flatrate (subscription) provider names; null = no TMDB data
+  freeProviders: string[] | null;      // US free/ad-supported provider names; null = no TMDB data
   url: string;
   savedAt: string;
 }

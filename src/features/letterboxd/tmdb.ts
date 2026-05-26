@@ -22,7 +22,7 @@ interface TmdbMovieDetails {
   title: string;
   release_date: string;
   'watch/providers': {
-    results: Record<string, { flatrate?: TmdbProviderEntry[] }>;
+    results: Record<string, { flatrate?: TmdbProviderEntry[]; free?: TmdbProviderEntry[]; ads?: TmdbProviderEntry[] }>;
   } | null;
 }
 
@@ -47,13 +47,17 @@ async function fetchMovieDetails(tmdbId: number, token: string): Promise<TmdbMov
   return res.json();
 }
 
-function extractUsProviders(details: TmdbMovieDetails): string[] | null {
+function extractUsProviders(details: TmdbMovieDetails): { streaming: string[] | null; free: string[] | null } {
   const us = details['watch/providers']?.results?.['US'];
-  if (!us) return null;
-  return (us.flatrate ?? []).map((p) => p.provider_name);
+  if (!us) return { streaming: null, free: null };
+  const streaming = (us.flatrate ?? []).map((p) => p.provider_name);
+  // TMDB uses both 'free' and 'ads' keys for ad-supported services depending on region/title.
+  const free = [...(us.free ?? []), ...(us.ads ?? [])].map((p) => p.provider_name);
+  return { streaming, free };
 }
 
 function filmToItem(film: LetterboxdFilm, details: TmdbMovieDetails | null): WatchlistItem {
+  const providers = details ? extractUsProviders(details) : { streaming: null, free: null };
   return {
     id: `lb:${film.url}`,
     source: 'letterboxd',
@@ -62,7 +66,8 @@ function filmToItem(film: LetterboxdFilm, details: TmdbMovieDetails | null): Wat
     synopsis: details?.overview || null,
     runtimeMinutes: details?.runtime ?? null,
     releaseDate: details?.release_date ?? null,
-    streamingProviders: details ? extractUsProviders(details) : null,
+    streamingProviders: providers.streaming,
+    freeProviders: providers.free,
     url: film.url,
     savedAt: new Date().toISOString(),
   };
