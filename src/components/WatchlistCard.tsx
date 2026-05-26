@@ -55,7 +55,7 @@ export function WatchlistCard({ item, onDismiss }: { item: WatchlistItem; onDism
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss(item.id); }}
         aria-label="Dismiss"
-        className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/90 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs leading-none"
+        className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-black/70 hover:bg-black/90 text-white rounded-full w-10 h-10 sm:w-6 sm:h-6 flex items-center justify-center text-base sm:text-xs leading-none"
       >
         ✕
       </button>
