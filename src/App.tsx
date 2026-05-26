@@ -6,7 +6,7 @@ import { parseTokenFromHash, isTokenExpired, silentRefreshToken } from './featur
 import { fetchFromPlaylists, DEFAULT_PLAYLIST_IDS } from './features/youtube/youtube-api';
 import { enrichWithTmdb } from './features/letterboxd/tmdb';
 import { getLbFilms, setLbFilms } from './lib/letterboxd-store';
-import { getDismissed, dismissItem, clearDismissed, clearDismissedBySource } from './lib/dismissed-store';
+import { getDismissed, dismissItem, clearDismissedBySource } from './lib/dismissed-store';
 import { STREAMING_SERVICES, YOUTUBE_TMDB_NAMES, itemMatchesService } from './lib/streaming-services';
 import type { ServiceFilterId } from './lib/streaming-services';
 import { OnboardingScreen } from './components/OnboardingScreen';
@@ -29,11 +29,6 @@ export default function App() {
   const handleDismiss = useCallback((id: string) => {
     dismissItem(id);
     setDismissed(new Set(getDismissed()));
-  }, []);
-
-  const handleRestoreAll = useCallback(() => {
-    clearDismissed();
-    setDismissed(new Set());
   }, []);
 
   const visibleItems = items
@@ -177,14 +172,6 @@ export default function App() {
       <header className="sticky top-0 z-10 bg-black/80 backdrop-blur flex items-center justify-between px-6 py-4">
         <h1 className="text-white font-bold text-xl tracking-tight">Stream Watchlist</h1>
         <div className="flex gap-3">
-          {dismissed.size > 0 && (
-            <button
-              onClick={handleRestoreAll}
-              className="text-zinc-500 hover:text-white text-sm transition-colors"
-            >
-              Restore {dismissed.size}
-            </button>
-          )}
           <button
             onClick={() => { clearCache(); fetchAll(); }}
             className="text-zinc-500 hover:text-white text-sm transition-colors"
